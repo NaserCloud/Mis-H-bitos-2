@@ -1,0 +1,3782 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hábitos">
+<meta name="theme-color" content="#1c1c1e">
+<title>Mis Hábitos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#0f0f12;
+    --card:#1c1c20;
+    --card2:#26262b;
+    --text:#f2f2f4;
+    --muted:#9a9aa2;
+    --accent:#c8874a;
+    --accent2:#6fae7c;
+    --danger:#c65b5b;
+    --border:#333338;
+    --tabbar-h: calc(60px + env(safe-area-inset-top));
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding-top:var(--tabbar-h);
+    user-select:none;
+  }
+  header{
+    padding:18px 20px 10px; position:sticky; top:var(--tabbar-h); background:var(--bg); z-index:5;
+  }
+  header h1{font-size:22px; margin:0 0 2px;}
+  header .date{color:var(--muted); font-size:13px; text-transform:capitalize;}
+  .daynav{
+    display:flex; align-items:center; gap:10px; margin-top:10px;
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:8px 10px;
+  }
+  .daynav button{
+    background:none; border:none; color:var(--text); font-size:15px; padding:4px 8px;
+  }
+  .daynav button:disabled{opacity:.25;}
+  .daynav-label{
+    flex:1; text-align:center; font-size:13px; font-weight:600; text-transform:capitalize;
+  }
+  #dayTodayBtn{
+    background:var(--accent); color:#1a1200; border-radius:8px; font-size:12px; font-weight:700; padding:4px 10px;
+  }
+  main{padding:8px 16px 20px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .back-btn{
+    display:flex; align-items:center; gap:8px; background:none; border:none; color:var(--accent2);
+    font-size:19px; font-weight:700; font-family:inherit; padding:10px 4px; margin-bottom:12px;
+  }
+
+  .card{
+    background:var(--card); border-radius:16px; padding:16px; margin-bottom:14px;
+    border:1px solid var(--border);
+  }
+  .card h2{font-size:15px; margin:0 0 12px; color:var(--muted); font-weight:600; letter-spacing:.3px; text-transform:uppercase;}
+
+  /* SCORE */
+  .score-card{text-align:center;}
+  .score-value{font-size:52px; font-weight:800; line-height:1;}
+  .score-value.score-good{color:var(--accent2);}
+  .score-value.score-mid{color:var(--accent);}
+  .score-value.score-bad{color:var(--danger);}
+  .score-max{font-size:16px; color:var(--muted); font-weight:600;}
+  .score-label{color:var(--muted); font-size:13px; margin-top:2px;}
+  .score-breakdown{color:var(--muted); font-size:12px; margin-top:10px; line-height:1.5;}
+  .score-settings-btn{
+    position:absolute; top:14px; right:14px; background:none; border:none; font-size:18px;
+    color:var(--muted); padding:4px;
+  }
+  .score-setting-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    font-size:13px; color:var(--muted); margin-bottom:10px;
+  }
+  .score-setting-row input{
+    width:64px; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:8px; font-size:14px; text-align:center;
+  }
+
+  /* PENDIENTES */
+  .collapsible-header{
+    width:100%; display:flex; justify-content:space-between; align-items:center;
+    background:none; border:none; color:var(--muted); font-size:15px; font-weight:600;
+    letter-spacing:.3px; text-transform:uppercase; padding:0; font-family:inherit;
+  }
+  .collapsible-arrow{transition:transform .15s ease; color:var(--muted); font-size:14px;}
+  .collapsible-arrow.open{transform:rotate(180deg);}
+  .collapsible-body{margin-top:12px;}
+  .pending-item{
+    display:flex; align-items:center; gap:10px; padding:11px 2px; border-bottom:1px solid var(--border);
+    color:var(--text); background:none; border-left:none; border-right:none; border-top:none;
+    width:100%; text-align:left; font-family:inherit;
+  }
+  .pending-item:last-child{border-bottom:none;}
+  .pending-icon{font-size:19px;}
+  .pending-text{flex:1; font-size:14px;}
+  .pending-arrow{color:var(--muted); font-size:16px;}
+
+  /* HOME */
+  .home-intro{color:var(--muted); font-size:14px; margin:4px 2px 16px;}
+  .home-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .home-card{
+    background:var(--card); border:1px solid var(--border); border-radius:16px;
+    padding:20px 10px; display:flex; flex-direction:column; align-items:center; gap:6px;
+    color:var(--text); font-family:inherit;
+  }
+  .home-card:active{transform:scale(0.96);}
+  .home-emoji{font-size:32px;}
+  .home-label{font-size:14px; font-weight:600;}
+  .home-summary{font-size:12px; color:var(--muted); text-align:center;}
+
+  /* SENSACIONES (comidas / sueño) */
+  .meal-time-row{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .meal-time-row label{font-size:13px; color:var(--muted);}
+  .meal-time-row input[type="time"]{
+    background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:9px 12px; font-size:14px; font-family:inherit;
+  }
+  .meal-photo-row{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .photo-btn{
+    display:flex; align-items:center; gap:8px; background:var(--card2); border:1px solid var(--border);
+    border-radius:12px; padding:10px 14px; font-size:14px; color:var(--text); flex:1;
+  }
+  .meal-photo-preview{width:44px; height:44px; border-radius:10px; object-fit:cover; display:none;}
+  .meal-item{display:flex; align-items:center; gap:10px; justify-content:flex-start !important;}
+  .meal-item .meal-thumb{width:38px; height:38px; border-radius:8px; object-fit:cover; flex-shrink:0;}
+  .meal-item .meal-info{flex:1; display:flex; flex-direction:column; gap:2px;}
+  .meal-item .meal-info-row{display:flex; justify-content:space-between;}
+  .meal-item .meal-desc{font-size:12px; color:var(--muted); white-space:normal; word-break:break-word;}
+  .meal-item .meal-gap{font-size:12px; color:var(--accent); white-space:normal;}
+  .meal-feeling-row{margin:2px 0;}
+  .meal-feeling-set{font-size:13px; color:var(--text);}
+  .meal-feeling-wait{font-size:12px; color:var(--muted);}
+  .meal-feeling-mini{display:flex; gap:6px;}
+  .mini-feel-btn{
+    background:var(--card2); border:1px solid var(--border); border-radius:8px;
+    padding:3px 9px; font-size:15px; font-family:inherit;
+  }
+  .mini-feel-btn:active{transform:scale(0.94);}
+  .export-btn{
+    width:100%; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:12px; font-size:14px; font-weight:600; margin-bottom:14px;
+  }
+  .export-options-row{display:flex; gap:8px; margin-bottom:10px;}
+  .export-opt-btn{
+    flex:1; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:12px 6px; font-size:13px; font-weight:600; font-family:inherit;
+  }
+  .export-range-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;}
+  .export-range-row input[type="date"]{
+    flex:1; min-width:130px; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:11px 10px; font-size:14px; font-family:inherit;
+  }
+  .export-range-go{
+    background:var(--accent); border:none; color:#1a1200; font-weight:700;
+    border-radius:10px; padding:0 18px; height:42px; font-size:14px; font-family:inherit;
+  }
+  .btn-add-meal{
+    width:100%; background:var(--accent); border:none; color:#1a1200; font-weight:700;
+    border-radius:12px; padding:14px; font-size:15px; font-family:inherit;
+  }
+  .btn-add-meal:active{transform:scale(0.98);}
+
+  .weight-input-row{display:flex; gap:10px;}
+  .weight-input-row input{
+    flex:1; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:12px 14px; font-size:20px;
+  }
+  .weight-input-row button{
+    background:var(--accent2); border:none; color:#0f2013; font-weight:700; border-radius:10px; padding:0 20px; font-size:15px;
+  }
+  .weight-status{color:var(--muted); font-size:13px; margin-top:10px;}
+
+  .feeling-row{display:flex; gap:10px;}
+  .feeling-btn{
+    flex:1; background:var(--card2); border:1px solid var(--border); border-radius:14px;
+    padding:14px 6px 10px; display:flex; flex-direction:column; align-items:center; gap:6px;
+    font-size:28px; color:var(--text); font-family:inherit;
+  }
+  .feeling-btn span{font-size:12px; color:var(--muted); font-weight:600;}
+  .feeling-btn.selected{border-color:var(--accent2); background:rgba(111,174,124,.15);}
+  .feeling-btn.disabled{opacity:.35; pointer-events:none;}
+  .feeling-btn:active{transform:scale(0.96);}
+
+  /* CAFE */
+  .coffee-big{
+    display:flex; flex-direction:column; align-items:center; gap:10px; padding:20px 0 8px;
+  }
+  .coffee-count{font-size:56px; font-weight:700; line-height:1;}
+  .coffee-label{color:var(--muted); font-size:13px;}
+  .btn-add-coffee{
+    width:120px; height:120px; border-radius:50%; border:none;
+    background:linear-gradient(145deg,#d99a5c,var(--accent));
+    color:#1a1200; font-size:40px; font-weight:700;
+    box-shadow:0 8px 20px rgba(200,135,74,.35);
+    margin-top:6px;
+  }
+  .btn-add-coffee:active{transform:scale(0.95);}
+  .btn-add-coffee.done{
+    background:linear-gradient(145deg,#8ecb99,var(--accent2));
+    box-shadow:0 8px 20px rgba(111,174,124,.35);
+  }
+  .undo-btn{
+    background:none; border:none; color:var(--muted); font-size:13px; margin-top:8px; text-decoration:underline;
+  }
+  .coffee-list{list-style:none; margin:0; padding:0;}
+  .coffee-list li{
+    display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid var(--border); font-size:14px;
+  }
+  .coffee-list li .row-main{flex:1; display:flex; justify-content:space-between;}
+  .coffee-list li:last-child{border-bottom:none;}
+  .coffee-list .t{color:var(--muted);}
+  .empty{color:var(--muted); font-size:13px; padding:8px 2px;}
+  .entry-del{
+    background:none; border:none; color:var(--danger); font-size:17px; padding:2px 6px; margin-left:8px;
+  }
+
+  .bars{display:flex; align-items:flex-end; gap:8px; height:90px; padding-top:6px;}
+  .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
+  .bar{width:100%; max-width:26px; background:var(--accent); border-radius:5px 5px 0 0; min-height:3px;}
+  .bar-day{font-size:10px; color:var(--muted); margin-top:4px;}
+  .bar-val{font-size:11px; color:var(--text); margin-bottom:2px;}
+  .stat-row{display:flex; justify-content:space-between; margin-top:10px; font-size:13px; color:var(--muted);}
+  .stat-row b{color:var(--text); font-size:15px;}
+
+  /* SUPLEMENTOS */
+  .slot-title{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:15px; font-weight:600; margin:4px 0 8px;
+  }
+  .slot-title span.emoji{margin-right:6px;}
+  .sup-item{
+    display:flex; align-items:center; gap:12px; padding:10px 4px; border-bottom:1px solid var(--border);
+  }
+  .sup-item:last-child{border-bottom:none;}
+  .sup-check{
+    width:26px; height:26px; border-radius:8px; border:2px solid var(--muted); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:16px; color:transparent;
+  }
+  .sup-item.done .sup-check{background:var(--accent2); border-color:var(--accent2); color:#0f2013;}
+  .sup-item.done .sup-name{color:var(--muted); text-decoration:line-through;}
+  .sup-name{flex:1; font-size:15px;}
+  .sup-del{color:var(--danger); font-size:18px; padding:4px 8px; display:none;}
+  .edit-mode .sup-del{display:block;}
+  .add-sup-row{display:flex; gap:8px; margin-top:10px;}
+  .add-sup-row input{
+    flex:1; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:10px 12px; font-size:14px;
+  }
+  .add-sup-row button{
+    background:var(--accent2); border:none; color:#0f2013; font-weight:700; border-radius:10px; padding:0 16px; font-size:20px;
+  }
+  .edit-toggle{
+    background:none; border:none; color:var(--accent); font-size:13px; padding:4px;
+  }
+
+  nav.tabbar{
+    position:fixed; top:0; bottom:auto; left:0; right:0; display:flex;
+    background:rgba(20,20,24,.95); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+    padding:calc(8px + env(safe-area-inset-top)) 8px 8px;
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    z-index:20;
+  }
+  nav.tabbar::-webkit-scrollbar{display:none;}
+  nav.tabbar button{
+    flex:0 0 auto; width:64px; background:none; border:none; color:var(--muted); font-size:11px;
+    display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 4px;
+    white-space:nowrap;
+  }
+  nav.tabbar button .ic{font-size:22px;}
+  nav.tabbar button.active{color:var(--text);}
+
+  /* GYM */
+  .gym-subnav{
+    display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; background:var(--card); border-radius:12px; padding:4px;
+    border:1px solid var(--border);
+  }
+  .gym-subtab{
+    flex:1 1 30%; background:none; border:none; color:var(--muted); font-size:12px; font-weight:600;
+    padding:9px 4px; border-radius:9px; font-family:inherit;
+  }
+  .gym-subtab.active{background:var(--accent); color:#1a1200;}
+  .gym-panel{display:none;}
+  .gym-panel.active{display:block;}
+
+  .gym-search-input{
+    width:100%; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:12px 14px; font-size:14px; font-family:inherit;
+  }
+  .gym-textarea{
+    width:100%; min-height:70px; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:12px 14px; font-size:14px; font-family:inherit; resize:vertical;
+  }
+  .gym-chips{display:flex; gap:8px; overflow-x:auto; margin-top:12px; padding-bottom:2px;}
+  .gym-chip{
+    flex:0 0 auto; background:var(--card2); border:1px solid var(--border); color:var(--muted);
+    font-size:12px; padding:7px 13px; border-radius:20px; white-space:nowrap; font-family:inherit;
+  }
+  .gym-chip.active{background:var(--accent); color:#1a1200; border-color:var(--accent);}
+
+  .gym-ex-card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:10px; overflow:hidden;
+  }
+  .gym-ex-row{display:flex; align-items:center; gap:12px; padding:10px; }
+  .gym-ex-thumb{width:52px; height:52px; border-radius:10px; object-fit:cover; background:var(--card2); flex-shrink:0;}
+  .gym-ex-info{flex:1; min-width:0;}
+  .gym-ex-name{font-size:14px; font-weight:600;}
+  .gym-ex-muscle{font-size:12px; color:var(--muted); margin-top:2px;}
+  .gym-ex-name-es{font-size:12px; color:var(--accent); font-style:italic; margin-top:1px;}
+  .gym-today-ex-name-es{font-size:12px; color:var(--accent); font-style:italic; margin-top:1px;}
+  .gym-plan-slot-name-es{font-size:12px; color:var(--accent); font-style:italic; font-weight:400; margin-top:-4px; margin-bottom:8px;}
+  .gym-plan-mini-result-es{font-size:11px; color:var(--muted); font-style:italic;}
+  .gym-video-row{margin-top:8px; display:flex; align-items:center; gap:8px;}
+  .gym-video-link{font-size:13px; color:var(--accent2); font-weight:700; text-decoration:none;}
+  .gym-video-add{background:none; border:1px dashed var(--border); color:var(--accent); font-size:12px; padding:6px 10px; border-radius:8px; font-family:inherit;}
+  .gym-video-edit{background:none; border:none; color:var(--muted); font-size:13px; padding:2px 6px;}
+  .gym-ex-add{
+    background:var(--accent2); border:none; color:#0f2013; font-weight:700; border-radius:10px;
+    width:34px; height:34px; font-size:18px; flex-shrink:0;
+  }
+  .gym-ex-add.added{background:var(--card2); color:var(--muted);}
+  .gym-ex-detail{display:none; padding:0 14px 14px; border-top:1px solid var(--border);}
+  .gym-ex-detail.open{display:block;}
+  .gym-ex-detail img{width:100%; border-radius:10px; margin:10px 0;}
+  .gym-ex-detail p{font-size:13px; color:var(--muted); line-height:1.6; margin:6px 0;}
+  .gym-ex-detail ol{margin:8px 0; padding-left:20px; font-size:13px; color:var(--muted); line-height:1.6;}
+
+  .gym-tray{
+    position:fixed; left:16px; right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); background:var(--accent); color:#1a1200;
+    border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:10px;
+    box-shadow:0 8px 20px rgba(0,0,0,.35); z-index:8;
+  }
+  .gym-tray-info{flex:1; font-size:13px; font-weight:600;}
+  .gym-tray-save{background:#1a1200; color:#f2f2f4; border:none; border-radius:10px; padding:8px 14px; font-weight:700; font-size:13px;}
+  .gym-tray-clear{background:none; border:none; color:#1a1200; font-size:18px; padding:4px 6px;}
+
+  .gym-routine-item{
+    display:flex; align-items:center; justify-content:space-between; padding:12px 4px;
+    border-bottom:1px solid var(--border);
+  }
+  .gym-routine-item:last-child{border-bottom:none;}
+  .gym-routine-name{font-size:15px; font-weight:600;}
+  .gym-routine-meta{font-size:12px; color:var(--muted); margin-top:2px;}
+
+  .gym-routine-ex-row{
+    display:flex; align-items:center; gap:10px; padding:10px 2px; border-bottom:1px solid var(--border);
+  }
+  .gym-routine-ex-row:last-child{border-bottom:none;}
+  .gym-routine-ex-name{flex:1; font-size:14px;}
+  .gym-routine-ex-row input{
+    width:44px; background:var(--card2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:6px; font-size:13px; text-align:center;
+  }
+
+  /* GYM: equipo toggle */
+  .gym-equip-toggle{display:flex; gap:8px; margin-top:12px;}
+  .gym-equip-btn{
+    flex:1; background:var(--card2); border:1px solid var(--border); color:var(--muted);
+    font-size:13px; font-weight:600; padding:9px; border-radius:10px; font-family:inherit;
+  }
+  .gym-equip-btn.active{background:var(--accent2); color:#0f2013; border-color:var(--accent2);}
+
+  /* GYM: Mi plan */
+  .gym-zone-card h2{display:flex; align-items:center; gap:8px;}
+  .gym-plan-slot{
+    background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px;
+  }
+  .gym-plan-slot-name{font-size:14px; font-weight:600; margin-bottom:8px;}
+  .gym-plan-slot-row{display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;}
+  .gym-plan-slot-row label{font-size:11px; color:var(--muted); display:flex; flex-direction:column; gap:3px;}
+  .gym-plan-slot-row input{
+    width:56px; background:var(--card); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:6px; font-size:13px; text-align:center;
+  }
+  .gym-plan-slot-row input.gym-weight-input{width:80px;}
+  .gym-plan-slot-progress{font-size:11px; color:var(--muted); margin-top:4px;}
+  .gym-plan-slot-progress.levelup{color:var(--accent2); font-weight:700;}
+  .gym-plan-pick-btn{
+    background:none; border:1px dashed var(--border); color:var(--accent); font-size:12px;
+    padding:7px 10px; border-radius:8px; font-family:inherit;
+  }
+  .gym-plan-mini-search{margin-top:8px; display:none;}
+  .gym-plan-mini-search.open{display:block;}
+  .gym-plan-mini-results{max-height:220px; overflow-y:auto; margin-top:8px;}
+  .gym-plan-mini-result{
+    display:flex; align-items:center; justify-content:space-between; padding:8px 4px;
+    border-bottom:1px solid var(--border); font-size:13px;
+  }
+  .gym-plan-mini-result:last-child{border-bottom:none;}
+  .gym-plan-mini-result button{
+    background:var(--accent2); border:none; color:#0f2013; font-weight:700; border-radius:8px; padding:5px 10px; font-size:12px;
+  }
+
+  /* GYM: Hoy */
+  .gym-today-header{text-align:center; margin-bottom:6px;}
+  .gym-today-daylabel{font-size:18px; font-weight:700;}
+  .gym-today-sub{font-size:13px; color:var(--muted); margin-top:4px;}
+  .gym-super-card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:12px;
+  }
+  .gym-super-title{font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; font-weight:700; margin-bottom:10px;}
+  .gym-today-ex{
+    display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border);
+  }
+  .gym-today-ex:last-child{border-bottom:none;}
+  .gym-today-ex.done{opacity:.55;}
+  .gym-today-ex-thumb{width:44px; height:44px; border-radius:10px; object-fit:cover; background:var(--card2); flex-shrink:0;}
+  .gym-today-ex-info{flex:1;}
+  .gym-today-ex-name{font-size:14px; font-weight:600;}
+  .gym-today-ex-meta{font-size:12px; color:var(--muted); margin-top:2px;}
+  .gym-today-ex-meta.levelup{color:var(--accent2); font-weight:700;}
+  .gym-complete-btn{
+    width:100%; background:var(--accent2); border:none; color:#0f2013; font-weight:700;
+    border-radius:12px; padding:14px; font-size:15px; font-family:inherit; margin-top:6px;
+  }
+  .login-gate{
+    position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center;
+    z-index:9999; padding:20px;
+  }
+  .login-card{
+    background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px 22px;
+    width:100%; max-width:320px; display:flex; flex-direction:column; gap:12px;
+  }
+  .login-title{font-size:20px; font-weight:800; text-align:center;}
+  .login-sub{font-size:13px; color:var(--muted); text-align:center; margin-bottom:6px;}
+  .login-card input{
+    background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:10px;
+    padding:12px; font-size:15px; font-family:inherit;
+  }
+  .login-card button{
+    background:var(--accent); border:none; color:#1a1200; font-weight:700; border-radius:10px;
+    padding:12px; font-size:15px; font-family:inherit;
+  }
+  .login-error{color:#ff6b6b; font-size:13px; text-align:center; min-height:16px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mis Hábitos</h1>
+  <div class="date" id="dateLabel"></div>
+  <div class="daynav" id="dayNav">
+    <button id="dayPrevBtn" aria-label="Día anterior">◀</button>
+    <div class="daynav-label" id="dayLabel">Hoy</div>
+    <button id="dayNextBtn" aria-label="Día siguiente">▶</button>
+    <button id="dayTodayBtn" style="display:none;">Hoy</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- INICIO -->
+  <section class="screen active" id="screen-home">
+    <div class="card score-card" style="position:relative;">
+      <button class="score-settings-btn" id="scoreSettingsBtn" aria-label="Ajustar puntuación">⚙️</button>
+      <div><span class="score-value" id="scoreValue">100</span><span class="score-max">/100</span></div>
+      <div class="score-label" id="scoreLabel">Puntuación de hoy</div>
+      <div class="score-breakdown" id="scoreBreakdown"></div>
+      <div id="scoreSettingsPanel" style="display:none; margin-top:14px; text-align:left;">
+        <div class="score-setting-row">
+          <span>Puntos por Suplementos</span>
+          <input type="number" id="weightSupInput" min="0" max="100" step="5">
+        </div>
+        <div class="score-setting-row">
+          <span>Puntos por Hábitos (Lectura, Luz Roja…)</span>
+          <input type="number" id="weightHabitsInput" min="0" max="100" step="5">
+        </div>
+        <div class="score-breakdown" id="scoreSettingsHint">Lo normal es que sumen 100.</div>
+        <button class="btn-add-meal" id="saveScoreWeightsBtn" style="margin-top:10px;">Guardar</button>
+      </div>
+    </div>
+    <div class="card">
+      <button class="collapsible-header" id="pendingToggle">
+        <span id="pendingTitle">Pendiente hoy</span>
+        <span class="collapsible-arrow" id="pendingArrow">▾</span>
+      </button>
+      <div id="pendingList" class="collapsible-body" style="display:none;"></div>
+    </div>
+    <div class="card">
+      <div class="slot-title"><span><span class="emoji">⬇️</span>Exportar informe (PDF)</span></div>
+      <div class="export-options-row">
+        <button class="export-opt-btn" id="exportTodayBtn">Hoy</button>
+        <button class="export-opt-btn" id="exportWeekBtn">Semana</button>
+        <button class="export-opt-btn" id="exportRangeToggleBtn">Calendario</button>
+      </div>
+      <div class="export-range-row" id="exportRangeRow" style="display:none;">
+        <input type="date" id="exportRangeStart">
+        <input type="date" id="exportRangeEnd">
+        <button class="export-range-go" id="exportRangeGoBtn">Descargar</button>
+      </div>
+      <div class="weight-status" id="exportStatus"></div>
+    </div>
+    <div class="home-intro" id="homeIntro">¿Qué quieres registrar?</div>
+    <div class="home-grid" id="homeGrid"></div>
+  </section>
+
+  <!-- CAFE -->
+  <section class="screen" id="screen-cafe">
+    <div class="card">
+      <div class="coffee-big">
+        <div class="coffee-count" id="coffeeCount">0</div>
+        <div class="coffee-label" id="coffeeCountLabel">cafés hoy</div>
+        <button class="btn-add-coffee" id="addCoffeeBtn">+</button>
+        <button class="undo-btn" id="undoCoffeeBtn" style="display:none;">deshacer último</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="coffeeListTitle">Hoy</h2>
+      <ul class="coffee-list" id="coffeeList"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Últimos 7 días</h2>
+      <div class="bars" id="coffeeBars"></div>
+      <div class="stat-row">
+        <div>Media diaria <b id="coffeeAvg">0</b></div>
+        <div>Total 7 días <b id="coffeeTotal7">0</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUPLEMENTOS -->
+  <section class="screen" id="screen-sup">
+    <div class="card" style="background:var(--card2);">
+      <h2>Notas</h2>
+      <div style="font-size:13px; color:var(--muted); line-height:1.5;">
+        Dosis actual válida 3 semanas. Después: bajar a 1 perla/cápsula al día en Omega 3, Vitamina C y Cúrcuma (PEA se mantiene 1-1-1). Vitamina B siempre separada del café.
+      </div>
+    </div>
+    <div id="supSlots"></div>
+  </section>
+
+  <!-- COMIDAS (sensaciones) -->
+  <section class="screen" id="screen-meals">
+    <div class="card">
+      <button class="btn-add-meal" id="addMealBtn">+ Añadir comida</button>
+      <div id="mealForm" style="display:none; margin-top:16px;">
+        <h2>¿Cómo te sentó?</h2>
+        <div class="meal-time-row">
+          <label for="mealTimeInput">Hora de la comida</label>
+          <input type="time" id="mealTimeInput">
+        </div>
+        <div class="meal-photo-row">
+          <label class="photo-btn" for="mealPhotoInput">📷 <span id="mealPhotoStatus">Añadir foto (opcional)</span></label>
+          <input type="file" accept="image/*" capture="environment" id="mealPhotoInput" style="display:none;">
+          <img class="meal-photo-preview" id="mealPhotoPreview" alt="">
+        </div>
+        <textarea class="gym-textarea" id="mealDescInput" placeholder="¿Qué has comido? (opcional)" style="margin-top:10px;"></textarea>
+        <div class="feeling-row">
+          <button class="feeling-btn" data-feeling="bien">😊<span>Bien</span></button>
+          <button class="feeling-btn" data-feeling="regular">😐<span>Regular</span></button>
+          <button class="feeling-btn" data-feeling="mal">😞<span>Mal</span></button>
+        </div>
+        <button class="btn-add-meal" id="saveMealBtn" style="margin-top:14px;">💾 Guardar comida</button>
+        <div class="weight-status" id="mealFormStatus"></div>
+        <button class="undo-btn" id="cancelMealBtn">cancelar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="mealsListTitle">Hoy</h2>
+      <button class="undo-btn" id="undoMealBtn" style="display:none;">deshacer último</button>
+      <ul class="coffee-list" id="mealsList"></ul>
+    </div>
+  </section>
+
+  <!-- AYUNO (se alimenta de las horas de las comidas) -->
+  <section class="screen" id="screen-ayuno">
+    <div class="card">
+      <div class="coffee-big">
+        <div class="coffee-count" id="ayunoCurrentCount">—</div>
+        <div class="coffee-label" id="ayunoCurrentLabel">ayuno actual</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Ayuno nocturno</h2>
+      <div class="weight-status" id="ayunoNightStatus">Sin datos suficientes todavía.</div>
+    </div>
+
+    <div class="card">
+      <h2>Últimos 7 días</h2>
+      <div class="bars" id="ayunoBars"></div>
+      <div class="stat-row">
+        <div>Media diaria <b id="ayunoAvg">—</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUEÑO -->
+  <section class="screen" id="screen-sleep">
+    <div class="card">
+      <h2 id="sleepQuestionTitle">¿Cómo has dormido?</h2>
+      <div class="feeling-row" id="sleepFeelingRow">
+        <button class="feeling-btn" data-feeling="bien">😊<span>Bien</span></button>
+        <button class="feeling-btn" data-feeling="regular">😐<span>Regular</span></button>
+        <button class="feeling-btn" data-feeling="mal">😞<span>Mal</span></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>¿Cuánto has dormido?</h2>
+      <div class="weight-input-row">
+        <input type="number" id="sleepHoursInput" step="0.25" inputmode="decimal" placeholder="horas">
+        <button id="saveSleepHoursBtn">Guardar</button>
+      </div>
+      <div class="weight-status" id="sleepHoursStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Calidad — últimos 7 días</h2>
+      <div class="bars" id="sleepBars"></div>
+    </div>
+
+    <div class="card">
+      <h2>Horas — últimos 7 días</h2>
+      <div class="bars" id="sleepHoursBars"></div>
+    </div>
+  </section>
+
+  <!-- PESO -->
+  <section class="screen" id="screen-weight">
+    <div class="card">
+      <h2 id="weightTitle">Peso de hoy</h2>
+      <div class="weight-input-row">
+        <input type="number" id="weightInput" step="0.1" inputmode="decimal" placeholder="kg">
+        <button id="saveWeightBtn">Guardar</button>
+      </div>
+      <div class="weight-status" id="weightStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Últimos 7 días</h2>
+      <div class="bars" id="weightBars"></div>
+    </div>
+  </section>
+
+  <!-- PREPARACIÓN DÍA SIGUIENTE -->
+  <section class="screen" id="screen-prep">
+    <div class="card" style="background:var(--card2);">
+      <div style="font-size:13px; color:var(--muted); line-height:1.5;">
+        Para dejar todo listo por la noche y que la mañana cueste menos.
+      </div>
+    </div>
+    <div class="card">
+      <div class="slot-title">
+        <span><span class="emoji">🎒</span>Preparación día siguiente</span>
+        <button class="edit-toggle" id="prepEditBtn">Editar</button>
+      </div>
+      <div id="prepList"></div>
+    </div>
+  </section>
+
+  <!-- NOTAS -->
+  <section class="screen" id="screen-notes">
+    <div class="card">
+      <h2>Notas</h2>
+      <div style="font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:10px;">
+        Apunta aquí cualquier idea o mejora para la app y coméntamela luego.
+      </div>
+      <textarea class="gym-textarea" id="noteInput" placeholder="Escribe una idea o mejora…"></textarea>
+      <button class="btn-add-meal" id="saveNoteBtn" style="margin-top:10px;">💾 Guardar nota</button>
+    </div>
+    <div class="card">
+      <h2>Notas guardadas</h2>
+      <ul class="coffee-list" id="notesList"></ul>
+    </div>
+  </section>
+
+  <!-- GYM -->
+  <section class="screen" id="screen-gym">
+    <div class="gym-subnav">
+      <button class="gym-subtab active" data-gympanel="gymTodayPanel">💪 Hoy</button>
+      <button class="gym-subtab" data-gympanel="gymPlanPanel">🎯 Mi plan</button>
+      <button class="gym-subtab" data-gympanel="gymSearchPanel">🔍 Buscar</button>
+      <button class="gym-subtab" data-gympanel="gymRoutinesPanel">📋 Rutinas</button>
+      <button class="gym-subtab" data-gympanel="gymManualPanel">✏️ Manual</button>
+    </div>
+
+    <!-- Hoy -->
+    <div class="gym-panel active" id="gymTodayPanel">
+      <div class="card gym-today-header">
+        <div class="gym-today-daylabel" id="gymTodayDayLabel">Cargando plan…</div>
+        <div class="gym-today-sub" id="gymTodaySub"></div>
+      </div>
+      <div id="gymTodayBody"></div>
+    </div>
+
+    <!-- Mi plan -->
+    <div class="gym-panel" id="gymPlanPanel">
+      <div class="card">
+        <div style="font-size:13px; color:var(--muted); line-height:1.5;">
+          2 ejercicios fijos por cada zona clave. Se mantienen igual hasta llegar a 500 repeticiones acumuladas, momento en el que te avisamos para subir peso o variante (también puedes editarlo a mano cuando quieras).
+        </div>
+        <div class="gym-equip-toggle">
+          <button class="gym-equip-btn active" id="gymEquipHomeBtn">🏠 Casa</button>
+          <button class="gym-equip-btn" id="gymEquipGymBtn">🏋️ Gym completo</button>
+        </div>
+      </div>
+      <div id="gymPlanZones"></div>
+      <div class="card">
+        <h2>Otros (rota cada sesión para trabajar todo el cuerpo)</h2>
+        <div id="gymOtrosList"></div>
+        <button class="gym-plan-pick-btn" id="gymOtrosAddBtn" style="margin-top:8px;">+ Añadir ejercicio a "Otros"</button>
+        <div class="gym-plan-mini-search" id="gymOtrosMiniSearch">
+          <input type="text" class="gym-search-input" id="gymOtrosSearchInput" placeholder="Buscar ejercicio…">
+          <div class="gym-plan-mini-results" id="gymOtrosResults"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buscar -->
+    <div class="gym-panel" id="gymSearchPanel">
+      <div class="card" id="gymDbStatusCard">
+        <div class="score-breakdown" id="gymDbStatus">Cargando base de datos de ejercicios…</div>
+        <button class="edit-toggle" id="gymDbRefreshBtn" style="margin-top:6px;">🔄 Actualizar lista</button>
+      </div>
+
+      <div class="card">
+        <input type="text" id="gymSearchInput" class="gym-search-input" placeholder="Buscar ejercicio por nombre…">
+        <div class="gym-chips" id="gymZoneChips"></div>
+      </div>
+
+      <div id="gymResultsList"></div>
+    </div>
+
+    <!-- Mis rutinas -->
+    <div class="gym-panel" id="gymRoutinesPanel">
+      <div class="card" id="gymRoutinesListCard">
+        <h2>Rutinas guardadas</h2>
+        <div id="gymRoutinesList"></div>
+      </div>
+      <div class="card" id="gymRoutineDetailCard" style="display:none;">
+        <h2 id="gymRoutineDetailTitle">Rutina</h2>
+        <div id="gymRoutineDetailList"></div>
+        <button class="undo-btn" id="gymRoutineBackBtn">volver a la lista</button>
+      </div>
+    </div>
+
+    <!-- Añadir manual -->
+    <div class="gym-panel" id="gymManualPanel">
+      <div class="card">
+        <h2>Nuevo ejercicio</h2>
+        <input type="text" id="gymManualName" class="gym-search-input" placeholder="Nombre del ejercicio" style="margin-bottom:10px;">
+        <div class="gym-chips" id="gymManualZoneChips"></div>
+        <textarea id="gymManualInstructions" class="gym-textarea" placeholder="Instrucciones (opcional)" style="margin-top:10px;"></textarea>
+        <input type="url" id="gymManualVideoUrl" class="gym-search-input" placeholder="Enlace a vídeo de YouTube (opcional)" style="margin-top:10px;">
+        <div class="meal-photo-row" style="margin-top:10px;">
+          <label class="photo-btn" for="gymManualPhotoInput">📷 <span id="gymManualPhotoStatus">Añadir foto (opcional)</span></label>
+          <input type="file" accept="image/*" capture="environment" id="gymManualPhotoInput" style="display:none;">
+          <img class="meal-photo-preview" id="gymManualPhotoPreview" alt="">
+        </div>
+        <button class="btn-add-meal" id="gymManualSaveBtn" style="margin-top:14px;">💾 Guardar ejercicio</button>
+        <div class="weight-status" id="gymManualStatus"></div>
+      </div>
+      <div class="card">
+        <h2>Mis ejercicios manuales</h2>
+        <div id="gymManualList"></div>
+      </div>
+    </div>
+
+    <!-- Bandeja de rutina en construcción -->
+    <div class="gym-tray" id="gymTray" style="display:none;">
+      <div class="gym-tray-info">
+        <span id="gymTrayCount">0</span> ejercicios seleccionados
+      </div>
+      <button class="gym-tray-save" id="gymTraySaveBtn">Guardar rutina</button>
+      <button class="gym-tray-clear" id="gymTrayClearBtn">✕</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button class="tab-btn active" data-screen="screen-home">
+    <span class="ic">🏠</span>Inicio
+  </button>
+  <button class="tab-btn" data-screen="screen-cafe">
+    <span class="ic">☕</span>Café
+  </button>
+  <button class="tab-btn" data-screen="screen-sup">
+    <span class="ic">💊</span>Suplementos
+  </button>
+  <button class="tab-btn" data-screen="screen-meals">
+    <span class="ic">🍽️</span>Comidas
+  </button>
+  <button class="tab-btn" data-screen="screen-ayuno">
+    <span class="ic">⏱️</span>Ayuno
+  </button>
+  <button class="tab-btn" data-screen="screen-sleep">
+    <span class="ic">😴</span>Sueño
+  </button>
+  <button class="tab-btn" data-screen="screen-weight">
+    <span class="ic">⚖️</span>Peso
+  </button>
+  <button class="tab-btn" data-screen="screen-prep">
+    <span class="ic">🎒</span>Prep. día
+  </button>
+  <button class="tab-btn" data-screen="screen-gym">
+    <span class="ic">🏋️</span>Gym
+  </button>
+  <button class="tab-btn" data-screen="screen-notes">
+    <span class="ic">📝</span>Notas
+  </button>
+</nav>
+
+<div id="loginGate" class="login-gate">
+  <form id="loginForm" class="login-card">
+    <div class="login-title">Mis Hábitos</div>
+    <div class="login-sub">Inicia sesión para continuar</div>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required>
+    <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required minlength="6">
+    <button type="submit" id="loginSubmitBtn">Entrar</button>
+    <button type="button" id="signupBtn" style="background:none;border:none;color:var(--muted);font-size:13px;text-decoration:underline;">Crear cuenta (solo la primera vez)</button>
+    <div class="login-error" id="loginError"></div>
+  </form>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORE_KEY = "habitos_data_v2";
+  var CONFIG_KEY = "habitos_config_v2";
+
+  var SLOT_KEYS = ["desayuno", "comida", "cena", "dormir"];
+
+  var DEFAULT_CONFIG = {
+    supplements: {
+      desayuno: ["Complejo B (1 perla)", "Omega 3 DHA (1 perla)", "Vitamina D3+K2 (4 gotas)", "Cúrcuma (1 cápsula)"],
+      comida: ["Omega 3 DHA (1 perla)", "Vitamina C (1 perla)", "PEA (1 cápsula)", "Cúrcuma (1 cápsula)"],
+      cena: ["Omega 3 DHA (1 perla)", "Vitamina C (1 perla)", "PEA (1 cápsula)", "Cúrcuma (1 cápsula)"],
+      dormir: ["Colágeno (1 scoop)", "Triple Magnesio (2 cápsulas)"]
+    },
+    scoreWeights: { supplements: 50, habits: 50 }, // puntos de los 100 totales, ajustables en Inicio
+    prep: ["Ropa", "Ropa gym", "Toalla", "Tarjeta gym", "Mochila trabajo"],
+    customExercises: [],
+    exerciseVideos: {},
+    gymRoutines: [],
+    gymPlan: {
+      cycleIndex: 0,
+      otrosPointer: 0,
+      equipment: "home",
+      slots: { core: [], glutes: [], upperback: [] },
+      otrosPool: []
+    }
+  };
+
+  var SLOT_META = {
+    desayuno: {label:"Desayuno", emoji:"🌅"},
+    comida: {label:"Comida", emoji:"🌤️"},
+    cena: {label:"Cena", emoji:"🌙"},
+    dormir: {label:"Antes de dormir", emoji:"😴"}
+  };
+
+  // Hábitos simples de "una vez al día": añadir aquí para crear más en el futuro.
+  var SIMPLE_HABITS = [
+    { key: "read", label: "Lectura", emoji: "📖", sub: "Meta: 15 min de lectura" },
+    { key: "luzroja", label: "Luz Roja", emoji: "🔴", sub: "Meta: 15 min de luz roja" }
+  ];
+
+  // ---------- ALMACÉN DE FOTOS (ahora en el servidor, no en el navegador) ----------
+  function blobToDataUrl(blob){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){ resolve(reader.result); };
+      reader.onerror = function(){ reject(reader.error); };
+      reader.readAsDataURL(blob);
+    });
+  }
+  var SB_URL = "https://rzzaizkzszgiirwmilyq.supabase.co";
+  var SB_KEY = "sb_publishable_xdaxsZhA3FDyGWsMeT2pLA_4TSyUvpl";
+  var sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+  var currentUid = null;
+  function photoPath(id){ return currentUid + "/" + String(id).replace(/[^a-zA-Z0-9_\-]/g, "") + ".jpg"; }
+  function savePhotoBlob(id, blob){
+    return sb.storage.from("mh-photos").upload(photoPath(id), blob, { contentType: "image/jpeg", upsert: true }).then(function(res){
+      if(res.error) throw new Error("No se pudo guardar la foto");
+    });
+  }
+  function getPhotoBlob(id){
+    if(!id || !currentUid) return Promise.resolve(null);
+    return sb.storage.from("mh-photos").download(photoPath(id)).then(function(res){
+      return res.error ? null : res.data;
+    }).catch(function(){ return null; });
+  }
+  function deletePhotoBlob(id){
+    return sb.storage.from("mh-photos").remove([photoPath(id)]).catch(function(){});
+  }
+  // ---------- CACHÉ DE EJERCICIOS (IndexedDB, base separada de la de fotos) ----------
+  var GYM_CACHE_DB_NAME = "habitos_gym_cache_db";
+  var GYM_CACHE_STORE = "cache";
+  var gymCacheDbPromise = null;
+
+  function openGymCacheDB(){
+    if(gymCacheDbPromise) return gymCacheDbPromise;
+    gymCacheDbPromise = new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error("IndexedDB no disponible")); return; }
+      var req = indexedDB.open(GYM_CACHE_DB_NAME, 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore(GYM_CACHE_STORE); };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+    return gymCacheDbPromise;
+  }
+  function getGymCache(key){
+    return openGymCacheDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(GYM_CACHE_STORE, "readonly");
+        var req = tx.objectStore(GYM_CACHE_STORE).get(key);
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror = function(){ reject(req.error); };
+      });
+    });
+  }
+  function setGymCache(key, value){
+    return openGymCacheDB().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(GYM_CACHE_STORE, "readwrite");
+        tx.objectStore(GYM_CACHE_STORE).put(value, key);
+        tx.oncomplete = function(){ resolve(); };
+        tx.onerror = function(){ reject(tx.error); };
+      });
+    });
+  }
+
+  function compressImage(file, maxWidth, quality){
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function(){
+        var scale = Math.min(1, maxWidth / img.width);
+        var w = Math.round(img.width * scale) || 1;
+        var h = Math.round(img.height * scale) || 1;
+        var canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob){
+          URL.revokeObjectURL(url);
+          if(blob) resolve(blob); else reject(new Error("No se pudo procesar la imagen"));
+        }, "image/jpeg", quality);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen")); };
+      img.src = url;
+    });
+  }
+
+  function todayKey(d){
+    d = d || new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth()+1).padStart(2,"0");
+    var day = String(d.getDate()).padStart(2,"0");
+    return y+"-"+m+"-"+day;
+  }
+
+  // ---------- Estado: vive en Supabase (un registro por día + uno de configuración) ----------
+  var bootState = { data: {}, config: null };
+  var syncTimer = null;
+  var syncedDays = {};      // día -> JSON ya guardado en el servidor
+  var syncedConfig = null;
+  var syncing = false;
+  var syncAgain = false;
+
+  function flushSync(){
+    if(syncTimer){ clearTimeout(syncTimer); syncTimer = null; }
+    if(!currentUid) return;
+    if(syncing){ syncAgain = true; return; }
+    var rows = [];
+    var snapshot = {};
+    Object.keys(bootState.data || {}).forEach(function(day){
+      var json = JSON.stringify(bootState.data[day]);
+      if(syncedDays[day] !== json){
+        rows.push({ owner_id: currentUid, day: day, rec: bootState.data[day], updated_at: new Date().toISOString() });
+        snapshot[day] = json;
+      }
+    });
+    var cfgJson = JSON.stringify(bootState.config);
+    var cfgChanged = bootState.config && cfgJson !== syncedConfig;
+    if(!rows.length && !cfgChanged) return;
+    syncing = true;
+    var jobs = [];
+    if(rows.length){
+      jobs.push(sb.from("mh_days").upsert(rows, { onConflict: "owner_id,day" }).then(function(res){
+        if(res.error) throw res.error;
+        Object.keys(snapshot).forEach(function(d){ syncedDays[d] = snapshot[d]; });
+      }));
+    }
+    if(cfgChanged){
+      jobs.push(sb.from("mh_config").upsert({ owner_id: currentUid, config: bootState.config, updated_at: new Date().toISOString() }, { onConflict: "owner_id" }).then(function(res){
+        if(res.error) throw res.error;
+        syncedConfig = cfgJson;
+      }));
+    }
+    Promise.all(jobs).catch(function(){ /* se reintenta en el próximo cambio */ }).then(function(){
+      syncing = false;
+      if(syncAgain){ syncAgain = false; scheduleSync(); }
+    });
+  }
+  function scheduleSync(){
+    if(syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(flushSync, 300);
+  }
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "hidden" && syncTimer){ flushSync(); }
+  });
+  window.addEventListener("pagehide", function(){
+    if(syncTimer){ flushSync(); }
+  });
+
+  function loadAll(){
+    return bootState.data || {};
+  }
+  function saveAll(newData){
+    bootState.data = newData;
+    scheduleSync();
+  }
+  function normalizeConfig(raw){
+    var c = raw;
+    if(!c || typeof c !== "object"){
+      c = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    }
+    if(!c.scoreWeights){ c.scoreWeights = { supplements: 50, habits: 50 }; }
+    if(!Array.isArray(c.prep)){ c.prep = ["Ropa", "Ropa gym", "Toalla", "Tarjeta gym", "Mochila trabajo"]; }
+    if(!Array.isArray(c.customExercises)){ c.customExercises = []; }
+    if(!c.exerciseVideos || typeof c.exerciseVideos !== "object"){ c.exerciseVideos = {}; }
+    if(!Array.isArray(c.gymRoutines)){ c.gymRoutines = []; }
+    if(!c.gymPlan || typeof c.gymPlan !== "object"){
+      c.gymPlan = { cycleIndex: 0, otrosPointer: 0, equipment: "home", slots: { core: [], glutes: [], upperback: [] }, otrosPool: [] };
+    }
+    if(!c.gymPlan.slots){ c.gymPlan.slots = { core: [], glutes: [], upperback: [] }; }
+    ["core","glutes","upperback"].forEach(function(z){ if(!Array.isArray(c.gymPlan.slots[z])){ c.gymPlan.slots[z] = []; } });
+    if(!Array.isArray(c.gymPlan.otrosPool)){ c.gymPlan.otrosPool = []; }
+    if(typeof c.gymPlan.cycleIndex !== "number"){ c.gymPlan.cycleIndex = 0; }
+    if(typeof c.gymPlan.otrosPointer !== "number"){ c.gymPlan.otrosPointer = 0; }
+    if(c.gymPlan.equipment !== "home" && c.gymPlan.equipment !== "gym"){ c.gymPlan.equipment = "home"; }
+    if(!c._seeds || typeof c._seeds !== "object"){ c._seeds = {}; }
+    if(!c._seeds.mochilaManana){
+      if(Array.isArray(c.prep) && c.prep.indexOf("Mochila de mañana") === -1){
+        c.prep.push("Mochila de mañana");
+      }
+      c._seeds.mochilaManana = true;
+    }
+    if(!c._seeds.curcumaDesayuno){
+      if(c.supplements && Array.isArray(c.supplements.desayuno) && c.supplements.desayuno.indexOf("Cúrcuma (1 cápsula)") === -1){
+        c.supplements.desayuno.push("Cúrcuma (1 cápsula)");
+      }
+      c._seeds.curcumaDesayuno = true;
+    }
+    if(!Array.isArray(c.notes)){ c.notes = []; }
+    return c;
+  }
+  function loadConfig(){
+    return normalizeConfig(bootState.config);
+  }
+  function saveConfig(newConfig){
+    bootState.config = newConfig;
+    scheduleSync();
+  }
+
+  function runApp(){
+  var data = loadAll();
+  var config = loadConfig();
+  var key = todayKey();
+
+  function ensureDay(k){
+    if(!data[k]){
+      data[k] = { coffees: [], meals: [], sleep: null, supplements: {} };
+      SLOT_KEYS.forEach(function(slot){ data[k].supplements[slot] = {}; });
+    }
+    if(!Array.isArray(data[k].meals)){ data[k].meals = []; }
+    if(typeof data[k].sleep !== "string"){ data[k].sleep = null; }
+    if(typeof data[k].sleepHours !== "number"){ data[k].sleepHours = null; }
+    if(typeof data[k].weight !== "number"){ data[k].weight = null; }
+    if(!data[k].prepDone || typeof data[k].prepDone !== "object"){ data[k].prepDone = {}; }
+    if(!data[k].gymSession || typeof data[k].gymSession !== "object"){ data[k].gymSession = { completed: false, completedAt: null, exercises: [] }; }
+    SIMPLE_HABITS.forEach(function(h){
+      if(typeof data[k][h.key] !== "boolean"){ data[k][h.key] = false; }
+    });
+    // make sure every configured supplement exists in today's record
+    SLOT_KEYS.forEach(function(slot){
+      config.supplements[slot].forEach(function(name){
+        if(!(name in data[k].supplements[slot])){
+          data[k].supplements[slot][name] = false;
+        }
+      });
+    });
+    // make sure every configured item de "preparar mañana" existe en el registro del día
+    config.prep.forEach(function(name){
+      if(!(name in data[k].prepDone)){
+        data[k].prepDone[name] = false;
+      }
+    });
+    return data[k];
+  }
+
+  var todayKeyStr = key;
+  var today = ensureDay(todayKeyStr); // día real, siempre hoy. Usado por el Inicio.
+  saveAll(data);
+
+  var viewedKey = todayKeyStr;   // día que se está viendo/editando en Café, Suplementos y hábitos
+  var viewed = today;            // apunta al mismo registro que "today" mientras estemos en hoy
+
+  function parseKey(k){
+    var parts = k.split("-").map(Number);
+    return new Date(parts[0], parts[1]-1, parts[2]);
+  }
+  function shiftKey(k, delta){
+    var d = parseKey(k);
+    d.setDate(d.getDate()+delta);
+    return todayKey(d);
+  }
+
+  function setViewedDay(k){
+    viewedKey = k;
+    viewed = ensureDay(k);
+    saveAll(data);
+    renderCoffee();
+    renderSupplements();
+    renderMeals();
+    renderAyuno();
+    renderSleep();
+    renderWeight();
+    renderPrep();
+    SIMPLE_HABITS.forEach(renderSimpleHabit);
+    renderDayNav();
+    renderHome();
+    if(typeof renderGymToday === "function"){ renderGymToday(); }
+  }
+
+  // ---------- HEADER ----------
+  var dateLabel = document.getElementById("dateLabel");
+  dateLabel.textContent = new Date().toLocaleDateString("es-ES", {weekday:"long", day:"numeric", month:"long"});
+
+  var dayNavEl = document.getElementById("dayNav");
+  var dayLabelEl = document.getElementById("dayLabel");
+  var dayPrevBtn = document.getElementById("dayPrevBtn");
+  var dayNextBtn = document.getElementById("dayNextBtn");
+  var dayTodayBtn = document.getElementById("dayTodayBtn");
+
+  function renderDayNav(){
+    var isToday = (viewedKey === todayKeyStr);
+    dayLabelEl.textContent = isToday ? "Hoy" : parseKey(viewedKey).toLocaleDateString("es-ES",{weekday:"short", day:"numeric", month:"short"});
+    dayNextBtn.disabled = isToday;
+    dayTodayBtn.style.display = isToday ? "none" : "inline-block";
+  }
+
+  dayPrevBtn.addEventListener("click", function(){ setViewedDay(shiftKey(viewedKey, -1)); });
+  dayNextBtn.addEventListener("click", function(){ if(viewedKey !== todayKeyStr){ setViewedDay(shiftKey(viewedKey, 1)); } });
+  dayTodayBtn.addEventListener("click", function(){ setViewedDay(todayKeyStr); });
+
+  renderDayNav();
+
+  // ---------- SIMPLE HABITS (build screens + tabs dynamically) ----------
+  var mainEl = document.querySelector("main");
+  var navEl = document.querySelector("nav.tabbar");
+
+  function buildSimpleHabitUI(habit){
+    var section = document.createElement("section");
+    section.className = "screen";
+    section.id = "screen-" + habit.key;
+    section.innerHTML =
+      '<div class="card">' +
+        '<div class="coffee-big">' +
+          '<div class="coffee-label" data-role="status">Aún no</div>' +
+          '<button class="btn-add-coffee" data-role="toggle">' + habit.emoji + '</button>' +
+          '<div class="coffee-label" style="margin-top:6px;">' + habit.sub + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<h2>Racha</h2>' +
+        '<div class="stat-row" style="margin-top:0;">' +
+          '<div>Días seguidos <b data-role="streak">0</b></div>' +
+          '<div>Últimos 7 días <b data-role="week">0</b>/7</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<h2>Últimos 7 días</h2>' +
+        '<div class="bars" data-role="bars"></div>' +
+      '</div>';
+    mainEl.appendChild(section);
+
+    var btn = document.createElement("button");
+    btn.className = "tab-btn";
+    btn.dataset.screen = "screen-" + habit.key;
+    btn.innerHTML = '<span class="ic">' + habit.emoji + '</span>' + habit.label;
+    navEl.appendChild(btn);
+
+    var toggleBtn = section.querySelector('[data-role="toggle"]');
+    toggleBtn.addEventListener("click", function(){
+      viewed[habit.key] = !viewed[habit.key];
+      saveAll(data);
+      renderSimpleHabit(habit);
+    });
+  }
+
+  function renderSimpleHabit(habit){
+    var section = document.getElementById("screen-" + habit.key);
+    var statusEl = section.querySelector('[data-role="status"]');
+    var toggleBtn = section.querySelector('[data-role="toggle"]');
+    var streakEl = section.querySelector('[data-role="streak"]');
+    var weekEl = section.querySelector('[data-role="week"]');
+    var barsEl = section.querySelector('[data-role="bars"]');
+
+    var isToday = (viewedKey === todayKeyStr);
+    var done = !!viewed[habit.key];
+    toggleBtn.classList.toggle("done", done);
+    statusEl.textContent = done ? (isToday ? "¡Hecho hoy!" : "Hecho ✓") : (isToday ? "Aún no" : "No registrado");
+
+    var days = [];
+    for(var i=6;i>=0;i--){
+      var d = new Date();
+      d.setDate(d.getDate()-i);
+      var k = todayKey(d);
+      var didIt = !!(data[k] && data[k][habit.key]);
+      days.push({k:k, done:didIt, label: d.toLocaleDateString("es-ES",{weekday:"short"}).slice(0,2)});
+    }
+
+    barsEl.innerHTML = days.map(function(d){
+      var h = d.done ? 70 : 6;
+      var isViewed = (d.k === viewedKey);
+      return '<div class="bar-col">'+
+        '<div class="bar-val">'+(d.done ? "✓" : "")+'</div>'+
+        '<div class="bar" style="height:'+h+'px; background:'+(d.done ? "var(--accent2)" : "var(--card2)")+';'+(isViewed ? "outline:2px solid var(--text);" : "")+'"></div>'+
+        '<div class="bar-day" style="'+(isViewed ? "color:var(--text); font-weight:700;" : "")+'">'+d.label+'</div>'+
+      '</div>';
+    }).join("");
+
+    weekEl.textContent = days.filter(function(d){return d.done;}).length;
+
+    var streak = 0;
+    for(var j=0;;j++){
+      var d2 = new Date();
+      d2.setDate(d2.getDate()-j);
+      var k2 = todayKey(d2);
+      if(data[k2] && data[k2][habit.key]){ streak++; } else { break; }
+    }
+    streakEl.textContent = streak;
+  }
+
+  SIMPLE_HABITS.forEach(buildSimpleHabitUI);
+
+  // ---------- HOME (pantalla inicial: elegir qué registrar) ----------
+  var HOME_ITEMS = [
+    {
+      screen: "screen-cafe", label: "Café", emoji: "☕",
+      summary: function(){
+        var n = viewed.coffees.length;
+        return n + (n === 1 ? " café" : " cafés");
+      }
+    },
+    {
+      screen: "screen-sup", label: "Suplementos", emoji: "💊",
+      summary: function(){
+        var total = 0, done = 0;
+        SLOT_KEYS.forEach(function(slot){
+          config.supplements[slot].forEach(function(name){
+            total++;
+            if(viewed.supplements[slot][name]) done++;
+          });
+        });
+        return done + "/" + total + " tomados";
+      }
+    },
+    {
+      screen: "screen-meals", label: "Comidas", emoji: "🍽️",
+      summary: function(){
+        var n = viewed.meals.length;
+        return n === 0 ? "Sin registrar" : n + (n === 1 ? " comida" : " comidas");
+      }
+    },
+    {
+      screen: "screen-ayuno", label: "Ayuno", emoji: "⏱️",
+      summary: function(){
+        var lastMeal = findLastMealBeforeNow();
+        if(!lastMeal) return "Sin datos";
+        return formatDuration(Date.now() - lastMeal.ts) + " sin comer";
+      }
+    },
+    {
+      screen: "screen-sleep", label: "Sueño", emoji: "😴",
+      summary: function(){
+        var parts = [];
+        if(viewed.sleep){ parts.push(FEELING_META[viewed.sleep].emoji + " " + FEELING_META[viewed.sleep].label); }
+        if(typeof viewed.sleepHours === "number"){ parts.push(viewed.sleepHours + "h"); }
+        return parts.length ? parts.join(" · ") : "Sin registrar";
+      }
+    },
+    {
+      screen: "screen-weight", label: "Peso", emoji: "⚖️",
+      summary: function(){
+        return (typeof viewed.weight === "number") ? viewed.weight + " kg" : "Sin registrar";
+      }
+    },
+    {
+      screen: "screen-prep", label: "Preparación día siguiente", emoji: "🎒",
+      summary: function(){
+        var total = config.prep.length;
+        var done = config.prep.filter(function(n){ return viewed.prepDone[n]; }).length;
+        return total === 0 ? "Sin items" : done + "/" + total + " listo";
+      }
+    },
+    {
+      screen: "screen-gym", label: "Gym", emoji: "🏋️",
+      summary: function(){
+        if(typeof getCycleDayForKey !== "function"){
+          var n = (config.gymRoutines || []).length;
+          return n === 0 ? "Sin rutinas" : n + (n === 1 ? " rutina" : " rutinas");
+        }
+        if(viewed.gymSession && viewed.gymSession.completed) return "Sesión hecha ✓";
+        var cycleDay = getCycleDayForKey(viewedKey);
+        var labels = cycleDay.zones.map(function(zk){ return zoneMetaByKey(zk).label; }).join(" + ");
+        return labels;
+      }
+    },
+    {
+      screen: "screen-notes", label: "Notas", emoji: "📝",
+      summary: function(){
+        var n = (config.notes || []).length;
+        return n === 0 ? "Sin notas" : n + (n === 1 ? " nota" : " notas");
+      }
+    }
+  ].concat(SIMPLE_HABITS.map(function(h){
+    return {
+      screen: "screen-" + h.key, label: h.label, emoji: h.emoji,
+      summary: function(){ return viewed[h.key] ? "Hecho ✓" : "Pendiente"; }
+    };
+  }));
+
+  // ---------- PUNTUACIÓN DIARIA ----------
+  // Los puntos se reparten según config.scoreWeights (ajustable desde Inicio, ⚙️).
+
+  function computeScore(rec){
+    var score = 100;
+    var breakdown = [];
+    var weights = config.scoreWeights || { supplements: 50, habits: 50 };
+    var supplementBudget = weights.supplements;
+    var habitsBudget = weights.habits;
+
+    var total = 0, done = 0;
+    SLOT_KEYS.forEach(function(slot){
+      config.supplements[slot].forEach(function(name){
+        total++;
+        if(rec.supplements[slot] && rec.supplements[slot][name]) done++;
+      });
+    });
+    var supEarned = total > 0 ? (supplementBudget * done / total) : supplementBudget;
+    var supPenalty = supplementBudget - supEarned;
+    if(supPenalty > 0.4){ breakdown.push("Suplementos: -" + Math.round(supPenalty)); }
+    score -= supPenalty;
+
+    var perHabit = habitsBudget / SIMPLE_HABITS.length;
+    SIMPLE_HABITS.forEach(function(h){
+      if(!rec[h.key]){
+        score -= perHabit;
+        breakdown.push(h.label + ": -" + Math.round(perHabit));
+      }
+    });
+
+    var coffeePenalty = 0;
+    var coffeeCount = (rec.coffees || []).length;
+    (rec.coffees || []).forEach(function(c){
+      var hour = new Date(c.ts).getHours();
+      coffeePenalty += (hour >= 15) ? 20 : 10;
+    });
+    if(coffeePenalty > 0){
+      score -= coffeePenalty;
+      breakdown.push("Café x" + coffeeCount + ": -" + coffeePenalty);
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    return { score: score, breakdown: breakdown };
+  }
+
+  var scoreValueEl = document.getElementById("scoreValue");
+  var scoreLabelEl = document.getElementById("scoreLabel");
+  var scoreBreakdownEl = document.getElementById("scoreBreakdown");
+
+  function renderScore(){
+    var isToday = (viewedKey === todayKeyStr);
+    var result = computeScore(viewed);
+    scoreValueEl.textContent = result.score;
+    scoreValueEl.className = "score-value " + (result.score >= 80 ? "score-good" : result.score >= 50 ? "score-mid" : "score-bad");
+    scoreLabelEl.textContent = isToday ? "Puntuación de hoy" : "Puntuación de ese día";
+    scoreBreakdownEl.textContent = result.breakdown.length ? result.breakdown.join(" · ") : "¡Todo perfecto!";
+  }
+
+  // ---------- AJUSTE DE PESOS DE PUNTUACIÓN ----------
+  var scoreSettingsBtn = document.getElementById("scoreSettingsBtn");
+  var scoreSettingsPanel = document.getElementById("scoreSettingsPanel");
+  var weightSupInput = document.getElementById("weightSupInput");
+  var weightHabitsInput = document.getElementById("weightHabitsInput");
+  var saveScoreWeightsBtn = document.getElementById("saveScoreWeightsBtn");
+  var scoreSettingsHintEl = document.getElementById("scoreSettingsHint");
+
+  scoreSettingsBtn.addEventListener("click", function(){
+    var opening = scoreSettingsPanel.style.display === "none";
+    if(opening){
+      weightSupInput.value = config.scoreWeights.supplements;
+      weightHabitsInput.value = config.scoreWeights.habits;
+      scoreSettingsHintEl.textContent = "Lo normal es que sumen 100.";
+    }
+    scoreSettingsPanel.style.display = opening ? "block" : "none";
+  });
+
+  saveScoreWeightsBtn.addEventListener("click", function(){
+    var sup = parseInt(weightSupInput.value, 10);
+    var hab = parseInt(weightHabitsInput.value, 10);
+    if(isNaN(sup) || isNaN(hab) || sup < 0 || hab < 0){
+      scoreSettingsHintEl.textContent = "Introduce números válidos (0 o más).";
+      return;
+    }
+    config.scoreWeights = { supplements: sup, habits: hab };
+    saveConfig(config);
+    scoreSettingsPanel.style.display = "none";
+    renderScore();
+  });
+
+  // ---------- PENDIENTES DEL DÍA ----------
+  var pendingTitleEl = document.getElementById("pendingTitle");
+  var pendingListEl = document.getElementById("pendingList");
+  var pendingToggleBtn = document.getElementById("pendingToggle");
+  var pendingArrowEl = document.getElementById("pendingArrow");
+  var pendingExpanded = false;
+
+  pendingToggleBtn.addEventListener("click", function(){
+    pendingExpanded = !pendingExpanded;
+    pendingListEl.style.display = pendingExpanded ? "block" : "none";
+    pendingArrowEl.classList.toggle("open", pendingExpanded);
+  });
+
+  function computePending(rec){
+    var items = [];
+    SLOT_KEYS.forEach(function(slot){
+      config.supplements[slot].forEach(function(name){
+        var taken = rec.supplements[slot] && rec.supplements[slot][name];
+        if(!taken){
+          items.push({ icon: SLOT_META[slot].emoji, text: name + " · " + SLOT_META[slot].label, screen: "screen-sup" });
+        }
+      });
+    });
+    SIMPLE_HABITS.forEach(function(h){
+      if(!rec[h.key]){
+        items.push({ icon: h.emoji, text: h.label, screen: "screen-" + h.key });
+      }
+    });
+    (rec.meals || []).forEach(function(m, idx){
+      if(!m.feeling){
+        items.push({ icon: "🍽️", text: "Marcar cómo sentó — comida de las " + m.time, screen: "screen-meals" });
+      }
+    });
+    return items;
+  }
+
+  function renderPending(){
+    var isToday = (viewedKey === todayKeyStr);
+    var items = computePending(viewed);
+    var baseLabel = isToday ? "Pendiente hoy" : "Pendiente ese día";
+    pendingTitleEl.textContent = baseLabel + (items.length ? " (" + items.length + ")" : "");
+    pendingListEl.style.display = pendingExpanded ? "block" : "none";
+    pendingArrowEl.classList.toggle("open", pendingExpanded);
+    if(items.length === 0){
+      pendingListEl.innerHTML = '<div class="empty" style="border:none;">¡Ya has hecho todo! 🎉</div>';
+      return;
+    }
+    pendingListEl.innerHTML = items.map(function(it, idx){
+      return '<button class="pending-item" data-idx="'+idx+'">'+
+        '<span class="pending-icon">'+it.icon+'</span>'+
+        '<span class="pending-text">'+it.text+'</span>'+
+        '<span class="pending-arrow">›</span>'+
+      '</button>';
+    }).join("");
+    pendingListEl.querySelectorAll(".pending-item").forEach(function(el){
+      el.addEventListener("click", function(){
+        activateScreen(items[Number(el.dataset.idx)].screen);
+      });
+    });
+  }
+
+  // ---------- EXPORTAR INFORME EN PDF ----------
+  var exportTodayBtn = document.getElementById("exportTodayBtn");
+  var exportWeekBtn = document.getElementById("exportWeekBtn");
+  var exportRangeToggleBtn = document.getElementById("exportRangeToggleBtn");
+  var exportRangeRow = document.getElementById("exportRangeRow");
+  var exportRangeStart = document.getElementById("exportRangeStart");
+  var exportRangeEnd = document.getElementById("exportRangeEnd");
+  var exportRangeGoBtn = document.getElementById("exportRangeGoBtn");
+  var exportStatusEl = document.getElementById("exportStatus");
+
+  var PDF_COLORS = {
+    text: [30, 30, 34], muted: [120, 120, 128],
+    accent: [200, 135, 74], accent2: [111, 174, 124],
+    danger: [198, 91, 91], headerBg: [24, 24, 28], white: [246, 246, 248]
+  };
+  var PDF_MARGIN = 40;
+
+  function pdfScoreColor(score){
+    if(score >= 80) return PDF_COLORS.accent2;
+    if(score >= 50) return PDF_COLORS.accent;
+    return PDF_COLORS.danger;
+  }
+
+  function getImageDimensions(dataUrl){
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      img.onload = function(){ resolve({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 }); };
+      img.onerror = function(){ reject(new Error("No se pudo leer la imagen")); };
+      img.src = dataUrl;
+    });
+  }
+
+  function ensureSpace(doc, y, needed){
+    var pageH = doc.internal.pageSize.getHeight();
+    if(y + needed > pageH - PDF_MARGIN){
+      doc.addPage();
+      return PDF_MARGIN;
+    }
+    return y;
+  }
+
+  function drawDayHeader(doc, dayKey, scoreResult){
+    var pageW = doc.internal.pageSize.getWidth();
+    doc.setFillColor(PDF_COLORS.headerBg[0], PDF_COLORS.headerBg[1], PDF_COLORS.headerBg[2]);
+    doc.rect(0, 0, pageW, 70, "F");
+    doc.setTextColor(PDF_COLORS.white[0], PDF_COLORS.white[1], PDF_COLORS.white[2]);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Mis Hábitos", PDF_MARGIN, 32);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    var d = parseKey(dayKey);
+    var label = d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    label = label.charAt(0).toUpperCase() + label.slice(1);
+    doc.text(label, PDF_MARGIN, 50);
+
+    var scoreColor = pdfScoreColor(scoreResult.score);
+    doc.setFillColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+    doc.roundedRect(pageW - 130, 16, 90, 38, 8, 8, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text(scoreResult.score + "/100", pageW - 85, 40, { align: "center" });
+
+    return 92;
+  }
+
+  function drawSectionTitle(doc, y, title){
+    y = ensureSpace(doc, y, 26);
+    doc.setFillColor(PDF_COLORS.accent[0], PDF_COLORS.accent[1], PDF_COLORS.accent[2]);
+    doc.rect(PDF_MARGIN, y, 3, 13, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(PDF_COLORS.text[0], PDF_COLORS.text[1], PDF_COLORS.text[2]);
+    doc.text(title, PDF_MARGIN + 9, y + 10.5);
+    return y + 22;
+  }
+
+  function drawLine(doc, y, text, opts){
+    opts = opts || {};
+    var pageW = doc.internal.pageSize.getWidth();
+    var maxWidth = pageW - PDF_MARGIN * 2;
+    doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+    doc.setFontSize(opts.size || 10.5);
+    var color = opts.color || PDF_COLORS.text;
+    doc.setTextColor(color[0], color[1], color[2]);
+    var wrapped = doc.splitTextToSize(String(text), maxWidth);
+    wrapped.forEach(function(ln){
+      y = ensureSpace(doc, y, 14);
+      doc.text(ln, PDF_MARGIN, y);
+      y += 14;
+    });
+    return y;
+  }
+
+  // Dibuja un día completo en el PDF (añadiendo página nueva si no es el primero).
+  function renderDayIntoPdf(doc, dayKey, rec, isFirstDay){
+    if(!isFirstDay){ doc.addPage(); }
+    var scoreResult = computeScore(rec);
+    var y = drawDayHeader(doc, dayKey, scoreResult);
+
+    if(scoreResult.breakdown.length){
+      y = drawLine(doc, y, "Detalle: " + scoreResult.breakdown.join(" · "), { color: PDF_COLORS.muted, size: 9.5 });
+      y += 4;
+    }
+
+    y = drawSectionTitle(doc, y, "Café");
+    y = drawLine(doc, y, rec.coffees.length + (rec.coffees.length === 1 ? " café" : " cafés") +
+      (rec.coffees.length ? ": " + rec.coffees.map(function(c){ return c.time; }).join(", ") : ""));
+    y += 6;
+
+    y = drawSectionTitle(doc, y, "Suplementos");
+    SLOT_KEYS.forEach(function(slot){
+      var names = config.supplements[slot] || [];
+      if(!names.length) return;
+      var stateObj = rec.supplements[slot] || {};
+      y = drawLine(doc, y, SLOT_META[slot].label + ":", { bold: true, size: 10 });
+      names.forEach(function(n){
+        var taken = !!stateObj[n];
+        y = drawLine(doc, y, "   " + (taken ? "Sí — " : "No — ") + n, { color: taken ? PDF_COLORS.accent2 : PDF_COLORS.muted });
+      });
+    });
+    y += 6;
+
+    y = drawSectionTitle(doc, y, "Hábitos");
+    SIMPLE_HABITS.forEach(function(h){
+      var done = !!rec[h.key];
+      y = drawLine(doc, y, (done ? "Sí — " : "No — ") + h.label, { color: done ? PDF_COLORS.accent2 : PDF_COLORS.muted });
+    });
+    y += 6;
+
+    y = drawSectionTitle(doc, y, "Sueño y peso");
+    y = drawLine(doc, y, "Sueño: " + (rec.sleep ? FEELING_META[rec.sleep].label : "sin registrar") +
+      (typeof rec.sleepHours === "number" ? " — " + rec.sleepHours + "h" : ""));
+    y = drawLine(doc, y, "Peso: " + (typeof rec.weight === "number" ? rec.weight + " kg" : "sin registrar"));
+    y += 6;
+
+    y = drawSectionTitle(doc, y, "Ayuno");
+    var nightGap = (typeof computeOvernightFast === "function") ? computeOvernightFast(dayKey) : null;
+    y = drawLine(doc, y, nightGap ? ("Ayuno nocturno: " + formatDuration(nightGap)) : "Sin datos suficientes de ayuno nocturno (hace falta la última comida del día anterior).");
+    y += 6;
+
+    var mealsChrono = rec.meals.map(function(m, i){ return { m: m, idx: i }; })
+      .sort(function(a, b){ return (a.m.ts || 0) - (b.m.ts || 0); });
+    y = drawSectionTitle(doc, y, "Comidas (" + rec.meals.length + ")");
+    if(mealsChrono.length === 0){
+      y = drawLine(doc, y, "Ninguna comida registrada.", { color: PDF_COLORS.muted });
+    }
+
+    // Las fotos se cargan de forma asíncrona; se procesan una a una, en orden,
+    // para que cada imagen aparezca justo debajo de su comida.
+    return mealsChrono.reduce(function(chain, entry, i){
+      return chain.then(function(){
+        var m = entry.m;
+        var feelingLabel = FEELING_META[m.feeling] ? FEELING_META[m.feeling].label : "sin marcar";
+        var line = "Comida " + (i + 1) + " — " + m.time + " — " + feelingLabel;
+        if(i > 0){
+          var gapMs = (m.ts || 0) - (mealsChrono[i - 1].m.ts || 0);
+          if(gapMs > 0){ line += " (ayuno previo: " + formatDuration(gapMs) + ")"; }
+        }
+        y = drawLine(doc, y, line, { bold: true, size: 10.5 });
+        if(m.desc){ y = drawLine(doc, y, m.desc, { color: PDF_COLORS.muted }); }
+        if(!m.photoId){ y += 4; return; }
+        return getPhotoBlob(m.photoId).then(function(blob){
+          if(!blob) return null;
+          return blobToDataUrl(blob);
+        }).then(function(dataUrl){
+          if(!dataUrl) return;
+          return getImageDimensions(dataUrl).then(function(dims){
+            var maxW = 170, maxH = 140;
+            var scale = Math.min(maxW / dims.w, maxH / dims.h, 1);
+            var w = dims.w * scale, h = dims.h * scale;
+            y = ensureSpace(doc, y, h + 10);
+            doc.addImage(dataUrl, "JPEG", PDF_MARGIN, y, w, h);
+            y += h + 10;
+          });
+        }).catch(function(){ /* si falla una foto, seguimos sin romper el informe */ }).then(function(){
+          y += 4;
+        });
+      });
+    }, Promise.resolve()).then(function(){ return y; });
+  }
+
+  function exportRangePdf(keys){
+    if(typeof window.jspdf === "undefined"){
+      return Promise.reject(new Error("No se pudo cargar la librería de exportación (revisa tu conexión)"));
+    }
+    if(!keys.length){
+      return Promise.reject(new Error("No hay días en ese rango"));
+    }
+    var doc = new window.jspdf.jsPDF({ unit: "pt", format: "a4" });
+    var chain = Promise.resolve();
+    keys.forEach(function(k, i){
+      chain = chain.then(function(){
+        var rec = ensureDay(k);
+        return renderDayIntoPdf(doc, k, rec, i === 0);
+      });
+    });
+    return chain.then(function(){
+      if(keys.length > 1){ saveAll(data); } // ensureDay pudo rellenar días nuevos con valores por defecto
+      var filename = keys.length === 1
+        ? ("habitos_" + keys[0] + ".pdf")
+        : ("habitos_" + keys[0] + "_a_" + keys[keys.length - 1] + ".pdf");
+      doc.save(filename);
+    });
+  }
+
+  function keysInRange(startKey, endKey){
+    var keys = [];
+    var cur = startKey;
+    var guard = 0;
+    while(guard < 400){
+      keys.push(cur);
+      if(cur === endKey) break;
+      cur = shiftKey(cur, 1);
+      guard++;
+    }
+    return keys;
+  }
+
+  function runExport(btn, promiseFactory){
+    var original = btn.textContent;
+    btn.textContent = "Generando…";
+    btn.disabled = true;
+    exportStatusEl.textContent = "";
+    promiseFactory().then(function(){
+      btn.textContent = original;
+      btn.disabled = false;
+    }).catch(function(err){
+      btn.textContent = original;
+      btn.disabled = false;
+      exportStatusEl.textContent = "No se pudo exportar: " + err.message;
+    });
+  }
+
+  exportTodayBtn.addEventListener("click", function(){
+    runExport(exportTodayBtn, function(){ return exportRangePdf([todayKeyStr]); });
+  });
+
+  exportWeekBtn.addEventListener("click", function(){
+    var endKey = todayKeyStr;
+    var startKey = shiftKey(endKey, -6);
+    runExport(exportWeekBtn, function(){ return exportRangePdf(keysInRange(startKey, endKey)); });
+  });
+
+  exportRangeToggleBtn.addEventListener("click", function(){
+    var showing = exportRangeRow.style.display !== "none";
+    exportRangeRow.style.display = showing ? "none" : "flex";
+    if(!showing && !exportRangeStart.value){
+      exportRangeStart.value = todayKeyStr;
+      exportRangeEnd.value = todayKeyStr;
+    }
+  });
+
+  exportRangeGoBtn.addEventListener("click", function(){
+    var startVal = exportRangeStart.value;
+    var endVal = exportRangeEnd.value;
+    if(!startVal || !endVal){
+      exportStatusEl.textContent = "Elige las dos fechas";
+      return;
+    }
+    if(startVal > endVal){ var tmp = startVal; startVal = endVal; endVal = tmp; }
+    runExport(exportRangeGoBtn, function(){ return exportRangePdf(keysInRange(startVal, endVal)); });
+  });
+
+  function buildHomeUI(){
+    var grid = document.getElementById("homeGrid");
+    HOME_ITEMS.forEach(function(item){
+      var card = document.createElement("button");
+      card.className = "home-card";
+      card.dataset.screen = item.screen;
+      card.innerHTML =
+        '<span class="home-emoji">' + item.emoji + '</span>' +
+        '<span class="home-label">' + item.label + '</span>' +
+        '<span class="home-summary" data-role="summary"></span>';
+      card.addEventListener("click", function(){ activateScreen(item.screen); });
+      grid.appendChild(card);
+    });
+  }
+
+  var homeIntroEl = document.getElementById("homeIntro");
+
+  function renderHome(){
+    var isToday = (viewedKey === todayKeyStr);
+    homeIntroEl.textContent = isToday
+      ? "¿Qué quieres registrar?"
+      : "Viendo " + parseKey(viewedKey).toLocaleDateString("es-ES",{weekday:"long", day:"numeric", month:"long"}) + " — toca para ver o editar";
+    HOME_ITEMS.forEach(function(item){
+      var card = document.querySelector('.home-card[data-screen="' + item.screen + '"]');
+      if(card){ card.querySelector('[data-role="summary"]').textContent = item.summary(); }
+    });
+    renderScore();
+    renderPending();
+  }
+
+  buildHomeUI();
+
+  // ---------- TABS ----------
+  function activateScreen(id){
+    document.querySelectorAll(".tab-btn").forEach(function(b){
+      var isActive = (b.dataset.screen === id);
+      b.classList.toggle("active", isActive);
+      if(isActive){ b.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"}); }
+    });
+    document.querySelectorAll(".screen").forEach(function(s){
+      s.classList.toggle("active", s.id === id);
+    });
+    window.scrollTo(0, 0);
+    if(id === "screen-home"){ renderHome(); }
+  }
+
+  document.querySelectorAll(".tab-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){ activateScreen(btn.dataset.screen); });
+  });
+
+  // Botón "Atrás" en todas las pantallas menos Inicio, para volver rápido sin usar la barra inferior.
+  document.querySelectorAll(".screen").forEach(function(s){
+    if(s.id === "screen-home") return;
+    var backBtn = document.createElement("button");
+    backBtn.className = "back-btn";
+    backBtn.innerHTML = "← Atrás";
+    backBtn.addEventListener("click", function(){ activateScreen("screen-home"); });
+    s.insertBefore(backBtn, s.firstChild);
+  });
+
+  // ---------- CAFE ----------
+  var coffeeCountEl = document.getElementById("coffeeCount");
+  var coffeeListEl = document.getElementById("coffeeList");
+  var addCoffeeBtn = document.getElementById("addCoffeeBtn");
+  var undoBtn = document.getElementById("undoCoffeeBtn");
+  var coffeeBarsEl = document.getElementById("coffeeBars");
+  var coffeeAvgEl = document.getElementById("coffeeAvg");
+  var coffeeTotal7El = document.getElementById("coffeeTotal7");
+  var coffeeCountLabelEl = document.getElementById("coffeeCountLabel");
+  var coffeeListTitleEl = document.getElementById("coffeeListTitle");
+
+  function renderCoffee(){
+    var isToday = (viewedKey === todayKeyStr);
+    var list = viewed.coffees;
+    coffeeCountEl.textContent = list.length;
+    coffeeCountLabelEl.textContent = isToday ? "cafés hoy" : "cafés ese día";
+    coffeeListTitleEl.textContent = isToday ? "Hoy" : "Registros de ese día";
+    undoBtn.style.display = list.length ? "inline" : "none";
+
+    if(list.length === 0){
+      coffeeListEl.innerHTML = '<li class="empty" style="border:none;">'+(isToday ? "Aún no has registrado ningún café hoy." : "No hay cafés registrados ese día.")+'</li>';
+    } else {
+      coffeeListEl.innerHTML = list.slice().reverse().map(function(c, idx){
+        var originalIdx = list.length - 1 - idx;
+        return '<li><span class="row-main"><span>Café #'+(list.length-idx)+'</span><span class="t">'+c.time+'</span></span>'+
+          '<button class="entry-del" data-idx="'+originalIdx+'">✕</button></li>';
+      }).join("");
+      coffeeListEl.querySelectorAll(".entry-del").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          viewed.coffees.splice(Number(btn.dataset.idx), 1);
+          saveAll(data);
+          renderCoffee();
+          renderHome();
+        });
+      });
+    }
+    renderCoffeeStats();
+  }
+
+  function renderCoffeeStats(){
+    var days = [];
+    for(var i=6;i>=0;i--){
+      var d = new Date();
+      d.setDate(d.getDate()-i);
+      var k = todayKey(d);
+      var count = (data[k] && data[k].coffees) ? data[k].coffees.length : 0;
+      days.push({k:k, count:count, label: d.toLocaleDateString("es-ES",{weekday:"short"}).slice(0,2)});
+    }
+    var max = Math.max.apply(null, days.map(function(d){return d.count;}).concat([1]));
+    coffeeBarsEl.innerHTML = days.map(function(d){
+      var h = Math.round((d.count/max)*80) + (d.count>0?4:0);
+      var isViewed = (d.k === viewedKey);
+      return '<div class="bar-col">'+
+        '<div class="bar-val">'+(d.count||"")+'</div>'+
+        '<div class="bar" style="height:'+h+'px;'+(isViewed ? "outline:2px solid var(--text);" : "")+'"></div>'+
+        '<div class="bar-day" style="'+(isViewed ? "color:var(--text); font-weight:700;" : "")+'">'+d.label+'</div>'+
+      '</div>';
+    }).join("");
+
+    var total7 = days.reduce(function(a,d){return a+d.count;},0);
+    coffeeTotal7El.textContent = total7;
+    coffeeAvgEl.textContent = (total7/7).toFixed(1);
+  }
+
+  addCoffeeBtn.addEventListener("click", function(){
+    var now = new Date();
+    var t = now.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    viewed.coffees.push({time:t, ts: now.getTime()});
+    saveAll(data);
+    renderCoffee();
+  });
+
+  undoBtn.addEventListener("click", function(){
+    viewed.coffees.pop();
+    saveAll(data);
+    renderCoffee();
+  });
+
+  // ---------- COMIDAS (sensaciones) ----------
+  var FEELING_META = {
+    bien: {emoji:"😊", label:"Bien"},
+    regular: {emoji:"😐", label:"Regular"},
+    mal: {emoji:"😞", label:"Mal"}
+  };
+
+  var MEAL_FEELING_WAIT_MS = 60 * 60 * 1000; // hay que esperar 1h desde la comida para poder decir cómo sentó
+
+  function mealTsFromDayAndTime(dayKey, timeStr){
+    var parts = timeStr.split(":");
+    var hh = Number(parts[0]), mm = Number(parts[1]);
+    var d = parseKey(dayKey);
+    d.setHours(hh, mm, 0, 0);
+    return d.getTime();
+  }
+
+  function mealFeelingEligible(ts){
+    return (Date.now() - ts) >= MEAL_FEELING_WAIT_MS;
+  }
+
+  function formatWaitLeft(ts){
+    var leftMs = MEAL_FEELING_WAIT_MS - (Date.now() - ts);
+    if(leftMs <= 0) return "";
+    var leftMin = Math.ceil(leftMs / 60000);
+    if(leftMin < 60) return leftMin + " min";
+    var h = Math.floor(leftMin / 60), m = leftMin % 60;
+    return h + "h " + m + "min";
+  }
+
+  var mealsListEl = document.getElementById("mealsList");
+  var mealsListTitleEl = document.getElementById("mealsListTitle");
+  var undoMealBtn = document.getElementById("undoMealBtn");
+  var mealFeelingBtns = document.querySelectorAll('#screen-meals .feeling-btn');
+  var mealPhotoInput = document.getElementById("mealPhotoInput");
+  var mealPhotoPreview = document.getElementById("mealPhotoPreview");
+  var mealPhotoStatus = document.getElementById("mealPhotoStatus");
+  var mealDescInputEl = document.getElementById("mealDescInput");
+  var mealTimeInputEl = document.getElementById("mealTimeInput");
+  var addMealBtn = document.getElementById("addMealBtn");
+  var mealFormEl = document.getElementById("mealForm");
+  var cancelMealBtn = document.getElementById("cancelMealBtn");
+  var saveMealBtn = document.getElementById("saveMealBtn");
+  var mealFormStatusEl = document.getElementById("mealFormStatus");
+  var pendingMealPhotoId = null;
+  var pendingMealPhotoBlob = null;
+  var selectedMealFeeling = null;
+
+  function resetPendingMealPhoto(){
+    pendingMealPhotoId = null;
+    pendingMealPhotoBlob = null;
+    mealPhotoPreview.style.display = "none";
+    mealPhotoInput.value = "";
+    mealPhotoStatus.textContent = "Añadir foto (opcional)";
+  }
+
+  function resetMealFeelingSelection(){
+    selectedMealFeeling = null;
+    mealFeelingBtns.forEach(function(b){ b.classList.remove("selected"); });
+    mealFormStatusEl.textContent = "";
+  }
+
+  function setMealFormOpen(open){
+    mealFormEl.style.display = open ? "block" : "none";
+    addMealBtn.style.display = open ? "none" : "block";
+    if(open){
+      resetPendingMealPhoto();
+      resetMealFeelingSelection();
+      mealDescInputEl.value = "";
+      var now = new Date();
+      mealTimeInputEl.value = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
+      updateMealFeelingAvailability();
+    }
+  }
+
+  function updateMealFeelingAvailability(){
+    var timeVal = mealTimeInputEl.value;
+    var eligible = false;
+    if(timeVal){
+      var ts = mealTsFromDayAndTime(viewedKey, timeVal);
+      eligible = mealFeelingEligible(ts);
+    }
+    mealFeelingBtns.forEach(function(b){ b.classList.toggle("disabled", !eligible); b.disabled = !eligible; });
+    if(!eligible){
+      selectedMealFeeling = null;
+      mealFeelingBtns.forEach(function(b){ b.classList.remove("selected"); });
+      var ts2 = timeVal ? mealTsFromDayAndTime(viewedKey, timeVal) : Date.now();
+      var wait = formatWaitLeft(ts2);
+      mealFormStatusEl.textContent = wait ? "Podrás marcar cómo te sentó dentro de " + wait : "Aún no puedes marcar cómo te sentó";
+    } else {
+      mealFormStatusEl.textContent = "";
+    }
+  }
+
+  mealTimeInputEl.addEventListener("input", updateMealFeelingAvailability);
+  mealTimeInputEl.addEventListener("change", updateMealFeelingAvailability);
+
+  addMealBtn.addEventListener("click", function(){ setMealFormOpen(true); });
+  cancelMealBtn.addEventListener("click", function(){
+    resetPendingMealPhoto();
+    resetMealFeelingSelection();
+    setMealFormOpen(false);
+  });
+
+  mealPhotoInput.addEventListener("change", function(){
+    var file = mealPhotoInput.files[0];
+    if(!file) return;
+    mealPhotoStatus.textContent = "Procesando foto…";
+    compressImage(file, 900, 0.65).then(function(blob){
+      pendingMealPhotoBlob = blob;
+      pendingMealPhotoId = "photo_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+      mealPhotoPreview.src = URL.createObjectURL(blob);
+      mealPhotoPreview.style.display = "inline-block";
+      mealPhotoStatus.textContent = "Foto lista ✓";
+    }).catch(function(){
+      mealPhotoStatus.textContent = "No se pudo procesar la foto";
+    });
+  });
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(ch){
+      return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[ch];
+    });
+  }
+  function renderMeals(){
+    var isToday = (viewedKey === todayKeyStr);
+    var list = viewed.meals;
+    mealsListTitleEl.textContent = isToday ? "Hoy" : "Registros de ese día";
+    undoMealBtn.style.display = list.length ? "inline" : "none";
+
+    if(list.length === 0){
+      mealsListEl.innerHTML = '<li class="empty" style="border:none;">'+(isToday ? "Aún no has registrado ninguna comida hoy." : "No hay comidas registradas ese día.")+'</li>';
+    } else {
+      // Se ordena por hora real (ts) para numerar y calcular el ayuno correctamente,
+      // aunque las comidas se hayan introducido a mano fuera de orden.
+      var chronological = list.map(function(m, idx){ return {m:m, idx:idx}; })
+        .sort(function(a,b){ return (a.m.ts||0) - (b.m.ts||0); });
+      chronological.forEach(function(entry, i){
+        entry.num = i + 1;
+        if(i > 0){
+          var gapMs = (entry.m.ts||0) - (chronological[i-1].m.ts||0);
+          if(gapMs > 0){
+            var gapH = Math.floor(gapMs / 3600000);
+            var gapM = Math.round((gapMs % 3600000) / 60000);
+            entry.gapLabel = gapH + "h " + String(gapM).padStart(2,"0") + "min desde la anterior";
+          }
+        }
+      });
+      mealsListEl.innerHTML = chronological.slice().reverse().map(function(entry){
+        var m = entry.m;
+        var thumb = m.photoId ? '<img class="meal-thumb" data-photo-id="'+m.photoId+'" alt="">' : '';
+        var descHtml = m.desc ? '<span class="meal-desc">'+escapeHtml(m.desc)+'</span>' : '';
+        var gapHtml = entry.gapLabel ? '<span class="meal-gap">⏱ '+entry.gapLabel+'</span>' : '';
+        var feelingHtml;
+        if(m.feeling){
+          var meta = FEELING_META[m.feeling] || {emoji:"", label:m.feeling};
+          feelingHtml = '<span class="meal-feeling-set">'+meta.emoji+' '+meta.label+'</span>';
+        } else if(mealFeelingEligible(m.ts||0)){
+          feelingHtml = '<span class="meal-feeling-mini">'+
+            '<button class="mini-feel-btn" data-idx="'+entry.idx+'" data-feeling="bien">😊</button>'+
+            '<button class="mini-feel-btn" data-idx="'+entry.idx+'" data-feeling="regular">😐</button>'+
+            '<button class="mini-feel-btn" data-idx="'+entry.idx+'" data-feeling="mal">😞</button>'+
+          '</span>';
+        } else {
+          feelingHtml = '<span class="meal-feeling-wait">⏳ podrás marcar cómo sentó en '+formatWaitLeft(m.ts||0)+'</span>';
+        }
+        return '<li class="meal-item">'+thumb+'<span class="meal-info"><span class="meal-info-row"><span>Comida '+entry.num+'</span><span class="t">'+m.time+'</span></span>'+
+          '<span class="meal-feeling-row">'+feelingHtml+'</span>'+descHtml+gapHtml+'</span>'+
+          '<button class="entry-del" data-idx="'+entry.idx+'">✕</button></li>';
+      }).join("");
+      mealsListEl.querySelectorAll(".meal-thumb").forEach(function(img){
+        getPhotoBlob(img.dataset.photoId).then(function(blob){
+          if(blob) img.src = URL.createObjectURL(blob);
+        });
+      });
+      mealsListEl.querySelectorAll(".mini-feel-btn").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var idx = Number(btn.dataset.idx);
+          var m = viewed.meals[idx];
+          if(!m || !mealFeelingEligible(m.ts||0)) return;
+          m.feeling = btn.dataset.feeling;
+          saveAll(data);
+          renderMeals();
+          renderHome();
+        });
+      });
+      mealsListEl.querySelectorAll(".entry-del").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var idx = Number(btn.dataset.idx);
+          var removed = viewed.meals[idx];
+          viewed.meals.splice(idx, 1);
+          saveAll(data);
+          if(removed && removed.photoId){ deletePhotoBlob(removed.photoId); }
+          renderMeals();
+          renderHome();
+          renderAyuno();
+        });
+      });
+    }
+  }
+
+  mealFeelingBtns.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      if(btn.disabled) return;
+      selectedMealFeeling = btn.dataset.feeling;
+      mealFeelingBtns.forEach(function(b){ b.classList.toggle("selected", b === btn); });
+      mealFormStatusEl.textContent = "";
+    });
+  });
+
+  saveMealBtn.addEventListener("click", function(){
+    var now = new Date();
+    var t, ts;
+    var timeVal = mealTimeInputEl.value;
+    if(timeVal){
+      t = timeVal;
+      ts = mealTsFromDayAndTime(viewedKey, timeVal);
+    } else {
+      t = now.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+      ts = now.getTime();
+    }
+    var entry = {time:t, ts: ts};
+    if(selectedMealFeeling && mealFeelingEligible(ts)){ entry.feeling = selectedMealFeeling; }
+    var descText = mealDescInputEl.value.trim();
+    if(descText){ entry.desc = descText; }
+    if(pendingMealPhotoId){
+      entry.photoId = pendingMealPhotoId;
+      savePhotoBlob(pendingMealPhotoId, pendingMealPhotoBlob);
+    }
+    viewed.meals.push(entry);
+    saveAll(data);
+    setMealFormOpen(false);
+    renderMeals();
+    renderHome();
+    renderAyuno();
+  });
+
+  undoMealBtn.addEventListener("click", function(){
+    viewed.meals.pop();
+    saveAll(data);
+    renderMeals();
+    renderHome();
+    renderAyuno();
+  });
+
+  // ---------- AYUNO (se alimenta de las horas registradas en Comidas) ----------
+  var ayunoCurrentCountEl = document.getElementById("ayunoCurrentCount");
+  var ayunoCurrentLabelEl = document.getElementById("ayunoCurrentLabel");
+  var ayunoNightStatusEl = document.getElementById("ayunoNightStatus");
+  var ayunoBarsEl = document.getElementById("ayunoBars");
+  var ayunoAvgEl = document.getElementById("ayunoAvg");
+
+  function formatDuration(ms){
+    if(ms < 0) ms = 0;
+    var totalMin = Math.round(ms / 60000);
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return h + "h " + String(m).padStart(2,"0") + "m";
+  }
+
+  function findLastMealBeforeNow(){
+    var latest = null;
+    Object.keys(data).forEach(function(k){
+      var rec = data[k];
+      if(rec && Array.isArray(rec.meals)){
+        rec.meals.forEach(function(m){
+          if(typeof m.ts === "number" && m.ts <= Date.now()){
+            if(!latest || m.ts > latest.ts){ latest = m; }
+          }
+        });
+      }
+    });
+    return latest;
+  }
+
+  // Ayuno nocturno: desde la última comida del día anterior hasta la primera de "k".
+  function computeOvernightFast(k){
+    var rec = data[k];
+    if(!rec || !rec.meals || !rec.meals.length) return null;
+    var firstToday = rec.meals.slice().sort(function(a,b){ return (a.ts||0) - (b.ts||0); })[0];
+    var prevRec = data[shiftKey(k, -1)];
+    if(!prevRec || !prevRec.meals || !prevRec.meals.length) return null;
+    var lastPrev = prevRec.meals.slice().sort(function(a,b){ return (b.ts||0) - (a.ts||0); })[0];
+    var gapMs = (firstToday.ts||0) - (lastPrev.ts||0);
+    return gapMs > 0 ? gapMs : null;
+  }
+
+  function renderAyuno(){
+    var lastMeal = findLastMealBeforeNow();
+    if(lastMeal){
+      ayunoCurrentCountEl.textContent = formatDuration(Date.now() - lastMeal.ts);
+      ayunoCurrentLabelEl.textContent = "ayuno actual (desde la comida de las " + lastMeal.time + ")";
+    } else {
+      ayunoCurrentCountEl.textContent = "—";
+      ayunoCurrentLabelEl.textContent = "aún no hay comidas registradas";
+    }
+
+    var nightGap = computeOvernightFast(viewedKey);
+    if(nightGap !== null){
+      ayunoNightStatusEl.textContent = "Desde la última comida del día anterior hasta la primera de este día: " + formatDuration(nightGap) + ".";
+    } else {
+      ayunoNightStatusEl.textContent = "Hacen falta la última comida del día anterior y la primera de este día para calcularlo.";
+    }
+
+    var days = [];
+    for(var i=6;i>=0;i--){
+      var d = new Date();
+      d.setDate(d.getDate()-i);
+      var k = todayKey(d);
+      var gapMs = computeOvernightFast(k);
+      var hours = gapMs ? gapMs / 3600000 : 0;
+      days.push({k:k, hours:hours, label: d.toLocaleDateString("es-ES",{weekday:"short"}).slice(0,2)});
+    }
+    ayunoBarsEl.innerHTML = days.map(function(d){
+      var h = d.hours > 0 ? Math.min(70, Math.round((d.hours/16)*70)) : 6;
+      var isViewed = (d.k === viewedKey);
+      var valLabel = d.hours > 0 ? Math.round(d.hours) + "h" : "";
+      return '<div class="bar-col">'+
+        '<div class="bar-val">'+valLabel+'</div>'+
+        '<div class="bar" style="height:'+h+'px; background:'+(d.hours>0 ? "var(--accent2)" : "var(--card2)")+';'+(isViewed ? "outline:2px solid var(--text);" : "")+'"></div>'+
+        '<div class="bar-day" style="'+(isViewed ? "color:var(--text); font-weight:700;" : "")+'">'+d.label+'</div>'+
+      '</div>';
+    }).join("");
+
+    var withData = days.filter(function(d){ return d.hours > 0; });
+    var avg = withData.length ? (withData.reduce(function(s,d){ return s + d.hours; }, 0) / withData.length) : 0;
+    ayunoAvgEl.textContent = avg ? (Math.round(avg*10)/10) + "h" : "—";
+  }
+
+  // ---------- NOTAS ----------
+  var noteInputEl = document.getElementById("noteInput");
+  var saveNoteBtn = document.getElementById("saveNoteBtn");
+  var notesListEl = document.getElementById("notesList");
+
+  function renderNotes(){
+    var list = config.notes || [];
+    if(list.length === 0){
+      notesListEl.innerHTML = '<li class="empty" style="border:none;">Aún no has apuntado ninguna nota.</li>';
+      return;
+    }
+    notesListEl.innerHTML = list.slice().reverse().map(function(n, idx){
+      var originalIdx = list.length - 1 - idx;
+      var d = new Date(n.ts);
+      var dateLabel = d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}) + " " + d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+      return '<li class="meal-item"><span class="meal-info"><span class="meal-info-row"><span>'+escapeHtml(n.text)+'</span></span><span class="meal-desc">'+dateLabel+'</span></span>'+
+        '<button class="entry-del" data-idx="'+originalIdx+'">✕</button></li>';
+    }).join("");
+    notesListEl.querySelectorAll(".entry-del").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var idx = Number(btn.dataset.idx);
+        config.notes.splice(idx, 1);
+        saveConfig(config);
+        renderNotes();
+        renderHome();
+      });
+    });
+  }
+
+  saveNoteBtn.addEventListener("click", function(){
+    var text = noteInputEl.value.trim();
+    if(!text) return;
+    if(!Array.isArray(config.notes)){ config.notes = []; }
+    config.notes.push({text: text, ts: Date.now()});
+    saveConfig(config);
+    noteInputEl.value = "";
+    renderNotes();
+    renderHome();
+  });
+
+  // ---------- SUEÑO ----------
+  var sleepBarsEl = document.getElementById("sleepBars");
+  var sleepFeelingBtns = document.querySelectorAll('#sleepFeelingRow .feeling-btn');
+  var sleepHoursInputEl = document.getElementById("sleepHoursInput");
+  var sleepHoursStatusEl = document.getElementById("sleepHoursStatus");
+  var sleepHoursBarsEl = document.getElementById("sleepHoursBars");
+  var saveSleepHoursBtn = document.getElementById("saveSleepHoursBtn");
+
+  function renderSleep(){
+    sleepFeelingBtns.forEach(function(btn){
+      btn.classList.toggle("selected", viewed.sleep === btn.dataset.feeling);
+    });
+
+    var days = [];
+    for(var i=6;i>=0;i--){
+      var d = new Date();
+      d.setDate(d.getDate()-i);
+      var k = todayKey(d);
+      var q = (data[k] && data[k].sleep) || null;
+      days.push({k:k, q:q, label: d.toLocaleDateString("es-ES",{weekday:"short"}).slice(0,2)});
+    }
+    var heightMap = {bien:70, regular:42, mal:16};
+    var colorMap = {bien:"var(--accent2)", regular:"var(--accent)", mal:"var(--danger)"};
+    sleepBarsEl.innerHTML = days.map(function(d){
+      var h = d.q ? heightMap[d.q] : 6;
+      var color = d.q ? colorMap[d.q] : "var(--card2)";
+      var isViewed = (d.k === viewedKey);
+      var emoji = d.q ? FEELING_META[d.q].emoji : "";
+      return '<div class="bar-col">'+
+        '<div class="bar-val">'+emoji+'</div>'+
+        '<div class="bar" style="height:'+h+'px; background:'+color+';'+(isViewed ? "outline:2px solid var(--text);" : "")+'"></div>'+
+        '<div class="bar-day" style="'+(isViewed ? "color:var(--text); font-weight:700;" : "")+'">'+d.label+'</div>'+
+      '</div>';
+    }).join("");
+
+    sleepHoursInputEl.value = (typeof viewed.sleepHours === "number") ? viewed.sleepHours : "";
+    sleepHoursStatusEl.textContent = (typeof viewed.sleepHours === "number") ? "Registrado: " + viewed.sleepHours + " h" : "Sin registrar";
+
+    var hourDays = [];
+    for(var j=6;j>=0;j--){
+      var d2 = new Date();
+      d2.setDate(d2.getDate()-j);
+      var k2 = todayKey(d2);
+      var hrs = (data[k2] && typeof data[k2].sleepHours === "number") ? data[k2].sleepHours : null;
+      hourDays.push({k:k2, h:hrs, label: d2.toLocaleDateString("es-ES",{weekday:"short"}).slice(0,2)});
+    }
+    var hourValues = hourDays.map(function(d){return d.h;}).filter(function(h){return h !== null;});
+    var hMin = hourValues.length ? Math.min.apply(null, hourValues) : 0;
+    var hMax = hourValues.length ? Math.max.apply(null, hourValues) : 1;
+    var hRange = (hMax - hMin) || 1;
+    sleepHoursBarsEl.innerHTML = hourDays.map(function(d){
+      var barH = (d.h !== null) ? Math.round(10 + ((d.h - hMin) / hRange) * 70) : 6;
+      var isViewed = (d.k === viewedKey);
+      return '<div class="bar-col">'+
+        '<div class="bar-val">'+(d.h !== null ? d.h : "")+'</div>'+
+        '<div class="bar" style="height:'+barH+'px;'+(isViewed ? "outline:2px solid var(--text);" : "")+'"></div>'+
+        '<div class="bar-day" style="'+(isViewed ? "color:var(--text); font-weight:700;" : "")+'">'+d.label+'</div>'+
+      '</div>';
+    }).join("");
+  }
+
+  sleepFeelingBtns.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var val = btn.dataset.feeling;
+      viewed.sleep = (viewed.sleep === val) ? null : val; // tocar de nuevo lo desmarca
+      saveAll(data);
+      renderSleep();
+    });
+  });
+
+  function saveSleepHours(){
+    var val = parseFloat(sleepHoursInputEl.value.replace(",", "."));
+    if(isNaN(val) || val < 0 || val > 24){
+      sleepHoursStatusEl.textContent = "Introduce unas horas válidas (0-24)";
+      return;
+    }
+    viewed.sleepHours = Math.round(val * 4) / 4;
+    saveAll(data);
+    renderSleep();
+    renderHome();
+  }
+
+  saveSleepHoursBtn.addEventListener("click", saveSleepHours);
+  sleepHoursInputEl.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ saveSleepHours(); sleepHoursInputEl.blur(); }
+  });
+
+  // ---------- PESO ----------
+  var weightTitleEl = document.getElementById("weightTitle");
+  var weightInputEl = document.getElementById("weightInput");
+  var weightStatusEl = document.getElementById("weightStatus");
+  var weightBarsEl = document.getElementById("weightBars");
+  var saveWeightBtn = document.getElementById("saveWeightBtn");
+
+  function renderWeight(){
+    var isToday = (viewedKey === todayKeyStr);
+    weightTitleEl.textContent = isToday ? "Peso de hoy" : "Peso ese día";
+    weightInputEl.value = (typeof viewed.weight === "number") ? viewed.weight : "";
+    weightStatusEl.textContent = (typeof viewed.weight === "number") ? "Registrado: " + viewed.weight + " kg" : "Sin registrar";
+
+    var days = [];
+    for(var i=6;i>=0;i--){
+      var d = new Date();
+      d.setDate(d.getDate()-i);
+      var k = todayKey(d);
+      var w = (data[k] && typeof data[k].weight === "number") ? data[k].weight : null;
+      days.push({k:k, w:w, label: d.toLocaleDateString("es-ES",{weekday:"short"}).slice(0,2)});
+    }
+    var values = days.map(function(d){return d.w;}).filter(function(w){return w !== null;});
+    var min = values.length ? Math.min.apply(null, values) : 0;
+    var max = values.length ? Math.max.apply(null, values) : 1;
+    var range = (max - min) || 1;
+    weightBarsEl.innerHTML = days.map(function(d){
+      var h = (d.w !== null) ? Math.round(10 + ((d.w - min) / range) * 70) : 6;
+      var isViewed = (d.k === viewedKey);
+      return '<div class="bar-col">'+
+        '<div class="bar-val">'+(d.w !== null ? d.w : "")+'</div>'+
+        '<div class="bar" style="height:'+h+'px;'+(isViewed ? "outline:2px solid var(--text);" : "")+'"></div>'+
+        '<div class="bar-day" style="'+(isViewed ? "color:var(--text); font-weight:700;" : "")+'">'+d.label+'</div>'+
+      '</div>';
+    }).join("");
+  }
+
+  function saveWeight(){
+    var val = parseFloat(weightInputEl.value.replace(",", "."));
+    if(isNaN(val) || val <= 0 || val > 400){
+      weightStatusEl.textContent = "Introduce un peso válido (kg)";
+      return;
+    }
+    viewed.weight = Math.round(val * 10) / 10;
+    saveAll(data);
+    renderWeight();
+    renderHome();
+  }
+
+  saveWeightBtn.addEventListener("click", saveWeight);
+  weightInputEl.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ saveWeight(); weightInputEl.blur(); }
+  });
+
+  // ---------- SUPLEMENTOS ----------
+  var supSlotsEl = document.getElementById("supSlots");
+  var editMode = {};
+  SLOT_KEYS.forEach(function(slot){ editMode[slot] = false; });
+
+  function renderSupplements(){
+    supSlotsEl.innerHTML = "";
+    SLOT_KEYS.forEach(function(slot){
+      var meta = SLOT_META[slot];
+      var names = config.supplements[slot];
+      var stateObj = viewed.supplements[slot];
+
+      var card = document.createElement("div");
+      card.className = "card" + (editMode[slot] ? " edit-mode" : "");
+
+      var title = document.createElement("div");
+      title.className = "slot-title";
+      title.innerHTML = '<span><span class="emoji">'+meta.emoji+'</span>'+meta.label+'</span>';
+      var editBtn = document.createElement("button");
+      editBtn.className = "edit-toggle";
+      editBtn.textContent = editMode[slot] ? "Listo" : "Editar";
+      editBtn.addEventListener("click", function(){
+        editMode[slot] = !editMode[slot];
+        renderSupplements();
+      });
+      title.appendChild(editBtn);
+      card.appendChild(title);
+
+      if(names.length === 0){
+        var empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Sin suplementos añadidos.";
+        card.appendChild(empty);
+      }
+
+      names.forEach(function(name){
+        var row = document.createElement("div");
+        row.className = "sup-item" + (stateObj[name] ? " done" : "");
+
+        var check = document.createElement("div");
+        check.className = "sup-check";
+        check.textContent = "✓";
+        row.appendChild(check);
+
+        var nameEl = document.createElement("div");
+        nameEl.className = "sup-name";
+        nameEl.textContent = name;
+        row.appendChild(nameEl);
+
+        var delBtn = document.createElement("div");
+        delBtn.className = "sup-del";
+        delBtn.textContent = "✕";
+        delBtn.addEventListener("click", function(ev){
+          ev.stopPropagation();
+          config.supplements[slot] = config.supplements[slot].filter(function(n){return n!==name;});
+          saveConfig(config);
+          renderSupplements();
+        });
+        row.appendChild(delBtn);
+
+        row.addEventListener("click", function(){
+          if(editMode[slot]) return;
+          stateObj[name] = !stateObj[name];
+          saveAll(data);
+          renderSupplements();
+        });
+
+        card.appendChild(row);
+      });
+
+      if(editMode[slot]){
+        var addRow = document.createElement("div");
+        addRow.className = "add-sup-row";
+        var input = document.createElement("input");
+        input.placeholder = "Nuevo suplemento…";
+        var addBtn = document.createElement("button");
+        addBtn.textContent = "+";
+        addBtn.addEventListener("click", function(){
+          var val = input.value.trim();
+          if(!val) return;
+          if(config.supplements[slot].indexOf(val) === -1){
+            config.supplements[slot].push(val);
+            saveConfig(config);
+            stateObj[val] = false;
+            saveAll(data);
+          }
+          input.value = "";
+          renderSupplements();
+        });
+        addRow.appendChild(input);
+        addRow.appendChild(addBtn);
+        card.appendChild(addRow);
+      }
+
+      supSlotsEl.appendChild(card);
+    });
+  }
+
+  // ---------- PREPARACIÓN DÍA SIGUIENTE ----------
+  var prepListEl = document.getElementById("prepList");
+  var prepEditBtn = document.getElementById("prepEditBtn");
+  var prepEditMode = false;
+
+  prepEditBtn.addEventListener("click", function(){
+    prepEditMode = !prepEditMode;
+    renderPrep();
+  });
+
+  function renderPrep(){
+    prepEditBtn.textContent = prepEditMode ? "Listo" : "Editar";
+    var names = config.prep;
+    var stateObj = viewed.prepDone;
+    prepListEl.innerHTML = "";
+
+    if(names.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Sin items añadidos.";
+      prepListEl.appendChild(empty);
+    }
+
+    names.forEach(function(name){
+      var row = document.createElement("div");
+      row.className = "sup-item" + (stateObj[name] ? " done" : "") + (prepEditMode ? " edit-mode" : "");
+
+      var check = document.createElement("div");
+      check.className = "sup-check";
+      check.textContent = "✓";
+      row.appendChild(check);
+
+      var nameEl = document.createElement("div");
+      nameEl.className = "sup-name";
+      nameEl.textContent = name;
+      row.appendChild(nameEl);
+
+      var delBtn = document.createElement("div");
+      delBtn.className = "sup-del";
+      delBtn.style.display = prepEditMode ? "block" : "none";
+      delBtn.textContent = "✕";
+      delBtn.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        config.prep = config.prep.filter(function(n){ return n !== name; });
+        saveConfig(config);
+        renderPrep();
+        renderHome();
+      });
+      row.appendChild(delBtn);
+
+      row.addEventListener("click", function(){
+        if(prepEditMode) return;
+        stateObj[name] = !stateObj[name];
+        saveAll(data);
+        renderPrep();
+        renderHome();
+      });
+
+      prepListEl.appendChild(row);
+    });
+
+    if(prepEditMode){
+      var addRow = document.createElement("div");
+      addRow.className = "add-sup-row";
+      var input = document.createElement("input");
+      input.placeholder = "Nuevo item…";
+      var addBtn = document.createElement("button");
+      addBtn.textContent = "+";
+      addBtn.addEventListener("click", function(){
+        var val = input.value.trim();
+        if(!val) return;
+        if(config.prep.indexOf(val) === -1){
+          config.prep.push(val);
+          saveConfig(config);
+          stateObj[val] = false;
+          saveAll(data);
+        }
+        input.value = "";
+        renderPrep();
+        renderHome();
+      });
+      addRow.appendChild(input);
+      addRow.appendChild(addBtn);
+      prepListEl.appendChild(addRow);
+    }
+  }
+
+  // ---------- GYM ----------
+  var GYM_DATA_URL = "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/dist/exercises.json";
+  var GYM_IMG_BASE = "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@main/exercises/";
+
+  var MUSCLE_ZONES = [
+    { key: null, label: "Todas" },
+    { key: "abdominals", label: "Abdominales" },
+    { key: "chest", label: "Pecho" },
+    { key: "lats", label: "Dorsales" },
+    { key: "middle back", label: "Espalda media" },
+    { key: "lower back", label: "Lumbares" },
+    { key: "shoulders", label: "Hombros" },
+    { key: "biceps", label: "Bíceps" },
+    { key: "triceps", label: "Tríceps" },
+    { key: "forearms", label: "Antebrazos" },
+    { key: "quadriceps", label: "Cuádriceps" },
+    { key: "hamstrings", label: "Isquiotibiales" },
+    { key: "glutes", label: "Glúteos" },
+    { key: "calves", label: "Gemelos" },
+    { key: "abductors", label: "Abductores" },
+    { key: "adductors", label: "Aductores" },
+    { key: "traps", label: "Trapecios" },
+    { key: "neck", label: "Cuello" }
+  ];
+
+  function muscleLabel(key){
+    var found = MUSCLE_ZONES.filter(function(z){ return z.key === key; });
+    return found.length ? found[0].label : key;
+  }
+
+  var gymExercisesFromDb = [];
+  var gymAllExercises = [];
+  var gymSearchTerm = "";
+  var gymSelectedZone = null;
+  var gymTray = [];
+  var gymManualSelectedZone = null;
+  var pendingGymPhotoId = null;
+  var pendingGymPhotoBlob = null;
+  var gymOpenRoutineIdx = null;
+
+  var gymDbStatusEl = document.getElementById("gymDbStatus");
+  var gymDbRefreshBtn = document.getElementById("gymDbRefreshBtn");
+  var gymSearchInputEl = document.getElementById("gymSearchInput");
+  var gymZoneChipsEl = document.getElementById("gymZoneChips");
+  var gymResultsListEl = document.getElementById("gymResultsList");
+  var gymTrayEl = document.getElementById("gymTray");
+  var gymTrayCountEl = document.getElementById("gymTrayCount");
+  var gymTraySaveBtn = document.getElementById("gymTraySaveBtn");
+  var gymTrayClearBtn = document.getElementById("gymTrayClearBtn");
+  var gymRoutinesListEl = document.getElementById("gymRoutinesList");
+  var gymRoutinesListCardEl = document.getElementById("gymRoutinesListCard");
+  var gymRoutineDetailCardEl = document.getElementById("gymRoutineDetailCard");
+  var gymRoutineDetailTitleEl = document.getElementById("gymRoutineDetailTitle");
+  var gymRoutineDetailListEl = document.getElementById("gymRoutineDetailList");
+  var gymRoutineBackBtn = document.getElementById("gymRoutineBackBtn");
+  var gymManualNameEl = document.getElementById("gymManualName");
+  var gymManualZoneChipsEl = document.getElementById("gymManualZoneChips");
+  var gymManualInstructionsEl = document.getElementById("gymManualInstructions");
+  var gymManualPhotoInput = document.getElementById("gymManualPhotoInput");
+  var gymManualVideoUrlEl = document.getElementById("gymManualVideoUrl");
+  var gymManualPhotoPreview = document.getElementById("gymManualPhotoPreview");
+  var gymManualPhotoStatus = document.getElementById("gymManualPhotoStatus");
+  var gymManualSaveBtn = document.getElementById("gymManualSaveBtn");
+  var gymManualStatusEl = document.getElementById("gymManualStatus");
+  var gymManualListEl = document.getElementById("gymManualList");
+
+  // subtabs
+  document.querySelectorAll(".gym-subtab").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".gym-subtab").forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      document.querySelectorAll(".gym-panel").forEach(function(p){ p.classList.remove("active"); });
+      document.getElementById(btn.dataset.gympanel).classList.add("active");
+    });
+  });
+
+  // ---------- Traduccion de nombres de ejercicios (ingles -> espanol) ----------
+  var GYM_NAME_OVERRIDES_ES = {
+    "farmers walk": "paseo del granjero", "farmer's walk": "paseo del granjero",
+    "russian twist": "giro ruso",
+    "mountain climber": "escalador",
+    "jumping jack": "salto de tijera", "jumping jacks": "saltos de tijera",
+    "burpee": "burpee", "burpees": "burpees"
+  };
+
+  var GYM_PHRASES_ES = [
+    // frases de movimiento completas (para que salgan igual sin importar el prefijo)
+    ["bench press", "press de banca", "move"],
+    ["military press", "press militar", "move"],
+    ["overhead press", "press por encima de la cabeza", "move"],
+    ["shoulder press", "press de hombros", "move"],
+    ["leg press", "prensa de piernas", "move"],
+    ["leg curl", "curl femoral", "move"],
+    ["leg extension", "extension de piernas", "move"],
+    ["lat pulldown", "jalon al pecho", "move"],
+    ["hip thrust", "empuje de cadera", "move"],
+    ["hip thrusts", "empujes de cadera", "move"],
+    ["good morning", "buenos dias", "move"],
+    ["good mornings", "buenos dias", "move"],
+    ["face pull", "jalon facial", "move"],
+    ["face pulls", "jalones faciales", "move"],
+    ["box jump", "salto al cajon", "move"],
+    ["box jumps", "saltos al cajon", "move"],
+    ["push down", "extension", "move"], ["pushdown", "extension", "move"],
+    ["pull down", "jalon", "move"], ["pulldown", "jalon", "move"],
+    ["pull up", "dominada", "move"], ["pullup", "dominada", "move"],
+    ["chin up", "dominada supina", "move"], ["chinup", "dominada supina", "move"],
+    ["push up", "flexion", "move"], ["pushup", "flexion", "move"],
+    ["step up", "subida al cajon", "move"], ["stepup", "subida al cajon", "move"],
+    ["wood chop", "lenador", "move"], ["woodchopper", "lenador", "move"], ["woodchop", "lenador", "move"],
+    ["kick back", "patada trasera", "move"], ["kickback", "patada trasera", "move"],
+    // equipo compuesto
+    ["ez bar", "barra Z", "equip"], ["ezbar", "barra Z", "equip"],
+    ["trap bar", "barra hexagonal", "equip"],
+    ["medicine ball", "balon medicinal", "equip"],
+    ["stability ball", "fitball", "equip"], ["exercise ball", "fitball", "equip"], ["swiss ball", "fitball", "equip"],
+    ["body weight", "peso corporal", "equip"], ["bodyweight", "peso corporal", "equip"],
+    ["resistance band", "banda de resistencia", "equip"],
+    ["battle ropes", "cuerdas de batalla", "equip"], ["battle rope", "cuerda de batalla", "equip"],
+    ["landmine", "landmine", "equip"],
+    // postura / agarre / angulo
+    ["bent over", "inclinado hacia delante", "stance"],
+    ["single arm", "a un brazo", "adj"], ["single leg", "a una pierna", "adj"],
+    ["one arm", "a un brazo", "adj"], ["one leg", "a una pierna", "adj"],
+    ["behind the neck", "tras nuca", "adj"],
+    ["wide grip", "agarre ancho", "adj"], ["close grip", "agarre cerrado", "adj"],
+    ["reverse grip", "agarre inverso", "adj"], ["neutral grip", "agarre neutro", "adj"]
+  ];
+
+  var GYM_WORDS_ES = {
+    "barbell":["barra","equip"], "dumbbell":["mancuerna","equip"], "dumbbells":["mancuernas","equip"],
+    "kettlebell":["pesa rusa","equip"], "kettlebells":["pesas rusas","equip"],
+    "cable":["polea","equip"], "machine":["maquina","equip"], "smith":["multipower","equip"],
+    "band":["banda elastica","equip"], "bands":["bandas elasticas","equip"],
+    "plate":["disco","equip"], "sled":["trineo","equip"], "bench":["banco","equip"],
+    "bar":["barra","equip"], "box":["cajon","equip"], "suspension":["suspension (TRX)","equip"],
+    "seated":["sentado","stance"], "standing":["de pie","stance"], "lying":["tumbado","stance"],
+    "kneeling":["de rodillas","stance"],
+    "incline":["inclinado","angle"], "decline":["declinado","angle"], "flat":["plano","angle"],
+    "wide":["ancho","adj"], "close":["cerrado","adj"], "narrow":["estrecho","adj"],
+    "reverse":["inverso","adj"], "alternating":["alterno","adj"], "grip":["agarre","adj"],
+    "front":["frontal","adj"], "side":["lateral","adj"], "lateral":["lateral","adj"],
+    "overhead":["por encima de la cabeza","adj"],
+    "assisted":["asistido","adj"], "weighted":["con peso extra","adj"],
+    "squats":["sentadillas","move"], "squat":["sentadilla","move"],
+    "deadlift":["peso muerto","move"], "deadlifts":["pesos muertos","move"],
+    "press":["press","move"], "curl":["curl","move"], "curls":["curls","move"], "row":["remo","move"], "rows":["remos","move"],
+    "extensions":["extensiones","move"], "extension":["extension","move"],
+    "raises":["elevaciones","move"], "raise":["elevacion","move"],
+    "flyes":["aperturas","move"], "flye":["apertura","move"], "fly":["apertura","move"], "flys":["aperturas","move"],
+    "lunges":["zancadas","move"], "lunge":["zancada","move"],
+    "crunches":["encogimientos abdominales","move"], "crunch":["encogimiento abdominal","move"],
+    "plank":["plancha","move"], "planks":["planchas","move"],
+    "dips":["fondos","move"], "dip":["fondo","move"],
+    "shrugs":["encogimientos de hombros","move"], "shrug":["encogimiento de hombros","move"],
+    "twist":["giro","move"], "twists":["giros","move"],
+    "jumps":["saltos","move"], "jump":["salto","move"],
+    "swings":["balanceos","move"], "swing":["balanceo","move"],
+    "thrusts":["empujes de cadera","move"], "thrust":["empuje de cadera","move"],
+    "bridges":["puentes","move"], "bridge":["puente","move"],
+    "clean":["cargada","move"], "cleans":["cargadas","move"],
+    "snatch":["arrancada","move"], "jerk":["envion","move"],
+    "hyperextensions":["hiperextensiones","move"], "hyperextension":["hiperextension","move"],
+    "pulls":["tirones","move"], "pull":["tiron","move"],
+    "stretches":["estiramientos","move"], "stretch":["estiramiento","move"],
+    "rotations":["rotaciones","move"], "rotation":["rotacion","move"],
+    "holds":["sostenidos","move"], "hold":["sostenido","move"],
+    "walks":["caminatas","move"], "walk":["caminata","move"],
+    "carries":["transportes","move"], "carry":["transporte","move"],
+    "chest":["pecho","part"],
+    "shoulders":["hombros","part"], "shoulder":["hombro","part"],
+    "biceps":["biceps","part"], "bicep":["biceps","part"],
+    "triceps":["triceps","part"], "tricep":["triceps","part"],
+    "legs":["piernas","part"], "leg":["pierna","part"],
+    "calves":["gemelos","part"], "calf":["gemelo","part"],
+    "glutes":["gluteos","part"], "glute":["gluteo","part"],
+    "back":["espalda","part"],
+    "lats":["dorsales","part"], "lat":["dorsal","part"],
+    "abdominals":["abdominales","part"], "abdominal":["abdominal","part"],
+    "abs":["abdominales","part"], "ab":["abdominal","part"],
+    "hips":["caderas","part"], "hip":["cadera","part"],
+    "neck":["cuello","part"], "wrists":["munecas","part"], "wrist":["muneca","part"],
+    "forearms":["antebrazos","part"], "forearm":["antebrazo","part"],
+    "hamstrings":["isquiotibiales","part"], "hamstring":["isquiotibial","part"],
+    "quadriceps":["cuadriceps","part"], "quads":["cuadriceps","part"], "quad":["cuadriceps","part"],
+    "adductors":["aductores","part"], "adductor":["aductor","part"],
+    "abductors":["abductores","part"], "abductor":["abductor","part"],
+    "traps":["trapecios","part"], "trap":["trapecio","part"],
+    "russian":["ruso","adj"], "sit":["sentada","adj"],
+    "romanian":["rumano","adj"], "bulgarian":["bulgaro","adj"],
+    "preacher":["predicador","adj"], "hammer":["martillo","adj"],
+    "concentration":["concentracion","adj"], "spider":["arana","adj"],
+    "goblet":["goblet","adj"], "split":["dividida","adj"], "sumo":["sumo","adj"],
+    "zercher":["zercher","adj"], "pike":["pike","adj"], "cossack":["cosaco","adj"],
+    "nordic":["nordico","adj"], "pistol":["pistol","adj"], "archer":["arquero","adj"]
+  };
+
+  function capitalizeEs(s){
+    if(!s) return s;
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  var GYM_STOPWORDS_ES = ["with","to","a","the","of","and","for","on","in","an","or"];
+
+  function translateExerciseName(name){
+    if(!name) return "";
+    var lower = name.toLowerCase().replace(/-/g, " ").replace(/'/g, "");
+    if(GYM_NAME_OVERRIDES_ES[lower]) return capitalizeEs(GYM_NAME_OVERRIDES_ES[lower]);
+
+    var remaining = " " + lower + " ";
+    var placeholderMap = {};
+    var phraseIdx = 0;
+    GYM_PHRASES_ES.forEach(function(entry){
+      var en = entry[0];
+      var escaped = en.replace(/[/\^$*+?.()|[\]{}]/g, "\\$&");
+      var re = new RegExp("\\b" + escaped + "\\b", "g");
+      remaining = remaining.replace(re, function(){
+        var key = " zzph" + phraseIdx + "zz ";
+        placeholderMap[key.trim()] = entry;
+        phraseIdx++;
+        return key;
+      });
+    });
+
+    var words = remaining.split(/\s+/).filter(function(w){ return w; });
+    var result = [];
+    words.forEach(function(w){
+      if(placeholderMap[w]){
+        result.push({ text: placeholderMap[w][1], type: placeholderMap[w][2] });
+        return;
+      }
+      if(GYM_STOPWORDS_ES.indexOf(w) !== -1){
+        return;
+      }
+      if(GYM_WORDS_ES[w]){
+        result.push({ text: GYM_WORDS_ES[w][0], type: GYM_WORDS_ES[w][1] });
+      } else {
+        result.push({ text: w, type: "raw" });
+      }
+    });
+
+    if(!result.length) return name;
+
+    var buckets = { move: [], part: [], angle: [], adj: [], raw: [], equip: [], stance: [] };
+    result.forEach(function(t){
+      if(buckets[t.type]) buckets[t.type].push(t.text); else buckets.raw.push(t.text);
+    });
+
+    var segments = [];
+    if(buckets.move.length) segments.push(buckets.move.join(" "));
+    if(buckets.part.length) segments.push("de " + buckets.part.join(" "));
+    if(buckets.angle.length) segments.push(buckets.angle.join(" "));
+    if(buckets.adj.length) segments.push(buckets.adj.join(" "));
+    if(buckets.raw.length) segments.push(buckets.raw.join(" "));
+
+    var out = segments.join(" ").replace(/\s+/g, " ").trim();
+    if(buckets.equip.length){ out += (out ? " " : "") + "con " + buckets.equip.join(" "); }
+    if(buckets.stance.length){ out += ", " + buckets.stance.join(" "); }
+    out = out.trim();
+    if(!out) return name;
+    return capitalizeEs(out);
+  }
+
+  function ensureNameEs(ex){
+    if(ex.nameEs) return ex.nameEs;
+    ex.nameEs = (ex.source === "custom") ? ex.name : translateExerciseName(ex.name);
+    return ex.nameEs;
+  }
+
+  function rebuildGymAllExercises(){
+    var custom = (config.customExercises || []).map(function(c){
+      return {
+        id: c.id, name: c.name,
+        primaryMuscles: c.zone ? [c.zone] : [],
+        instructions: c.instructions ? [c.instructions] : [],
+        images: [], photoId: c.photoId || null, source: "custom"
+      };
+    });
+    gymAllExercises = gymExercisesFromDb.concat(custom);
+    gymAllExercises.forEach(ensureNameEs);
+  }
+
+  function loadGymExercises(forceRefresh){
+    gymDbStatusEl.textContent = "Cargando base de datos de ejercicios…";
+    var cachedPromise = forceRefresh ? Promise.resolve(null) : getGymCache("exercises").catch(function(){ return null; });
+    cachedPromise.then(function(cached){
+      if(cached && cached.length){
+        gymExercisesFromDb = cached;
+        rebuildGymAllExercises();
+        gymDbStatusEl.textContent = cached.length + " ejercicios disponibles (guardados en el móvil).";
+        renderGymResults();
+        return;
+      }
+      fetch(GYM_DATA_URL).then(function(r){
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function(arr){
+        gymExercisesFromDb = arr;
+        rebuildGymAllExercises();
+        setGymCache("exercises", arr);
+        gymDbStatusEl.textContent = arr.length + " ejercicios cargados ✓";
+        renderGymResults();
+      }).catch(function(){
+        gymDbStatusEl.textContent = "No se pudo cargar la lista (revisa tu conexión). Puedes seguir usando tus ejercicios manuales.";
+        rebuildGymAllExercises();
+        renderGymResults();
+      });
+    });
+  }
+
+  gymDbRefreshBtn.addEventListener("click", function(){ loadGymExercises(true); });
+
+  function buildZoneChipsUI(container, getSelected, onSelect, zones){
+    container.innerHTML = "";
+    (zones || MUSCLE_ZONES).forEach(function(z){
+      var chip = document.createElement("button");
+      chip.className = "gym-chip" + (getSelected() === z.key ? " active" : "");
+      chip.textContent = z.label;
+      chip.addEventListener("click", function(){ onSelect(z.key); });
+      container.appendChild(chip);
+    });
+  }
+
+  gymSearchInputEl.addEventListener("input", function(){
+    gymSearchTerm = gymSearchInputEl.value;
+    renderGymResults();
+  });
+
+  function getExerciseVideo(exId){
+    return (config.exerciseVideos && config.exerciseVideos[exId]) || "";
+  }
+  function setExerciseVideo(exId, url){
+    if(!config.exerciseVideos){ config.exerciseVideos = {}; }
+    if(url){ config.exerciseVideos[exId] = url; } else { delete config.exerciseVideos[exId]; }
+    saveConfig(config);
+  }
+  function buildVideoHtml(exId){
+    var url = getExerciseVideo(exId);
+    if(url){
+      return '<div class="gym-video-row"><a class="gym-video-link" href="' + url.replace(/"/g,"&quot;") + '" target="_blank" rel="noopener">▶️ Ver vídeo</a>' +
+        '<button class="gym-video-edit" data-role="editvideo" data-exid="' + exId + '">✏️</button></div>';
+    }
+    return '<div class="gym-video-row"><button class="gym-video-add" data-role="addvideo" data-exid="' + exId + '">🎥 + Añadir vídeo</button></div>';
+  }
+  function wireVideoButtons(container, rerenderFn){
+    container.querySelectorAll('[data-role="addvideo"],[data-role="editvideo"]').forEach(function(btn){
+      btn.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        var exId = btn.dataset.exid;
+        var current = getExerciseVideo(exId);
+        var url = window.prompt("Enlace al vídeo de YouTube (déjalo vacío para quitarlo):", current);
+        if(url === null) return;
+        setExerciseVideo(exId, url.trim());
+        if(rerenderFn) rerenderFn();
+      });
+    });
+  }
+
+  function buildExerciseDetailHtml(ex){
+    var imgs = (ex.images || []).map(function(p){ return '<img src="' + GYM_IMG_BASE + p + '" loading="lazy">'; }).join("");
+    var instr = "";
+    if(ex.instructions && ex.instructions.length){
+      instr = "<ol>" + ex.instructions.map(function(s){ return "<li>" + s + "</li>"; }).join("") + "</ol>";
+    }
+    return imgs + instr + buildVideoHtml(ex.id);
+  }
+
+  function buildExerciseCardHtml(ex){
+    var thumbHtml;
+    if(ex.images && ex.images.length){
+      thumbHtml = '<img class="gym-ex-thumb" src="' + GYM_IMG_BASE + ex.images[0] + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">';
+    } else if(ex.photoId){
+      thumbHtml = '<img class="gym-ex-thumb" data-photo-id="' + ex.photoId + '" alt="">';
+    } else {
+      thumbHtml = '<div class="gym-ex-thumb"></div>';
+    }
+    var muscleText = (ex.primaryMuscles || []).map(muscleLabel).join(", ") || (ex.source === "custom" ? "Manual" : "");
+    var inTray = gymTray.filter(function(t){ return t.id === ex.id; }).length > 0;
+    return '<div class="gym-ex-card" data-id="' + ex.id + '">' +
+      '<div class="gym-ex-row" data-role="toggle">' +
+        thumbHtml +
+        '<div class="gym-ex-info"><div class="gym-ex-name">' + ex.name + '</div><div class="gym-ex-name-es">' + ensureNameEs(ex) + '</div><div class="gym-ex-muscle">' + muscleText + '</div></div>' +
+        '<button class="gym-ex-add' + (inTray ? " added" : "") + '" data-role="addbtn">' + (inTray ? "✓" : "+") + '</button>' +
+      '</div>' +
+      '<div class="gym-ex-detail" data-role="detail">' + buildExerciseDetailHtml(ex) + '</div>' +
+    '</div>';
+  }
+
+  function renderGymResults(){
+    buildZoneChipsUI(gymZoneChipsEl, function(){ return gymSelectedZone; }, function(key){ gymSelectedZone = key; renderGymResults(); });
+
+    var term = gymSearchTerm.trim().toLowerCase();
+    if(!term && !gymSelectedZone){
+      gymResultsListEl.innerHTML = '<div class="empty" style="border:none;">Escribe un nombre o elige una zona para buscar.</div>';
+      return;
+    }
+    var filtered = gymAllExercises.filter(function(ex){
+      var matchesTerm = !term || ex.name.toLowerCase().indexOf(term) !== -1 || ensureNameEs(ex).toLowerCase().indexOf(term) !== -1;
+      var matchesZone = !gymSelectedZone || (ex.primaryMuscles || []).indexOf(gymSelectedZone) !== -1;
+      return matchesTerm && matchesZone && passesEquipment(ex);
+    });
+    if(filtered.length === 0){
+      gymResultsListEl.innerHTML = '<div class="empty" style="border:none;">Sin resultados.</div>';
+      return;
+    }
+    var capped = filtered.slice(0, 60);
+    gymResultsListEl.innerHTML = capped.map(buildExerciseCardHtml).join("") +
+      (filtered.length > capped.length ? '<div class="empty" style="border:none;">Mostrando ' + capped.length + ' de ' + filtered.length + '. Afina la búsqueda para ver más.</div>' : "");
+
+    gymResultsListEl.querySelectorAll(".gym-ex-thumb[data-photo-id]").forEach(function(img){
+      getPhotoBlob(img.dataset.photoId).then(function(blob){
+        if(blob) img.src = URL.createObjectURL(blob);
+      });
+    });
+
+    gymResultsListEl.querySelectorAll(".gym-ex-card").forEach(function(card){
+      var id = card.dataset.id;
+      var toggleRow = card.querySelector('[data-role="toggle"]');
+      var detail = card.querySelector('[data-role="detail"]');
+      toggleRow.addEventListener("click", function(ev){
+        if(ev.target.closest('[data-role="addbtn"]')) return;
+        detail.classList.toggle("open");
+      });
+      var addBtn = card.querySelector('[data-role="addbtn"]');
+      addBtn.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        var ex = gymAllExercises.filter(function(e){ return e.id === id; })[0];
+        if(!ex) return;
+        toggleTrayExercise(ex);
+        addBtn.classList.toggle("added");
+        addBtn.textContent = addBtn.classList.contains("added") ? "✓" : "+";
+      });
+    });
+
+    wireVideoButtons(gymResultsListEl, renderGymResults);
+  }
+
+  function toggleTrayExercise(ex){
+    var idx = -1;
+    for(var i=0;i<gymTray.length;i++){ if(gymTray[i].id === ex.id){ idx = i; break; } }
+    if(idx === -1){ gymTray.push({ id: ex.id, name: ex.name }); } else { gymTray.splice(idx, 1); }
+    renderGymTray();
+  }
+
+  function renderGymTray(){
+    gymTrayCountEl.textContent = gymTray.length;
+    gymTrayEl.style.display = gymTray.length ? "flex" : "none";
+  }
+
+  gymTrayClearBtn.addEventListener("click", function(){
+    gymTray = [];
+    renderGymTray();
+    renderGymResults();
+  });
+
+  gymTraySaveBtn.addEventListener("click", function(){
+    if(gymTray.length === 0) return;
+    var name = window.prompt("Nombre de la rutina:", "");
+    if(!name || !name.trim()) return;
+    var routine = {
+      id: "routine_" + Date.now(),
+      name: name.trim(),
+      createdAt: Date.now(),
+      exercises: gymTray.map(function(t){ return { id: t.id, name: t.name, sets: 3, reps: 12 }; })
+    };
+    config.gymRoutines.push(routine);
+    saveConfig(config);
+    gymTray = [];
+    renderGymTray();
+    renderGymResults();
+    renderGymRoutinesList();
+    renderHome();
+  });
+
+  function renderGymRoutinesList(){
+    var list = config.gymRoutines || [];
+    if(list.length === 0){
+      gymRoutinesListEl.innerHTML = '<div class="empty" style="border:none;">Aún no tienes rutinas guardadas.</div>';
+      return;
+    }
+    gymRoutinesListEl.innerHTML = list.map(function(r, idx){
+      return '<div class="gym-routine-item" data-idx="' + idx + '">' +
+        '<div><div class="gym-routine-name">' + r.name + '</div><div class="gym-routine-meta">' + r.exercises.length + ' ejercicios</div></div>' +
+        '<button class="entry-del" data-role="delroutine" data-idx="' + idx + '">✕</button>' +
+      '</div>';
+    }).join("");
+    gymRoutinesListEl.querySelectorAll(".gym-routine-item").forEach(function(row){
+      row.addEventListener("click", function(ev){
+        if(ev.target.dataset.role === "delroutine") return;
+        openRoutineDetail(Number(row.dataset.idx));
+      });
+    });
+    gymRoutinesListEl.querySelectorAll('[data-role="delroutine"]').forEach(function(btn){
+      btn.addEventListener("click", function(ev){
+        ev.stopPropagation();
+        config.gymRoutines.splice(Number(btn.dataset.idx), 1);
+        saveConfig(config);
+        renderGymRoutinesList();
+        renderHome();
+      });
+    });
+  }
+
+  function renderRoutineDetailBody(){
+    var r = config.gymRoutines[gymOpenRoutineIdx];
+    if(!r) return;
+    gymRoutineDetailTitleEl.textContent = r.name;
+    gymRoutineDetailListEl.innerHTML = r.exercises.map(function(e, i){
+      return '<div class="gym-routine-ex-row">' +
+        '<span class="gym-routine-ex-name">' + e.name + '</span>' +
+        'S <input type="number" min="1" data-role="sets" data-i="' + i + '" value="' + e.sets + '">' +
+        'R <input type="number" min="1" data-role="reps" data-i="' + i + '" value="' + e.reps + '">' +
+        '<button class="entry-del" data-role="delex" data-i="' + i + '">✕</button>' +
+      '</div>';
+    }).join("");
+    gymRoutineDetailListEl.querySelectorAll('[data-role="sets"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        r.exercises[Number(inp.dataset.i)].sets = parseInt(inp.value, 10) || 1;
+        saveConfig(config);
+      });
+    });
+    gymRoutineDetailListEl.querySelectorAll('[data-role="reps"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        r.exercises[Number(inp.dataset.i)].reps = parseInt(inp.value, 10) || 1;
+        saveConfig(config);
+      });
+    });
+    gymRoutineDetailListEl.querySelectorAll('[data-role="delex"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        r.exercises.splice(Number(btn.dataset.i), 1);
+        saveConfig(config);
+        renderRoutineDetailBody();
+        renderGymRoutinesList();
+      });
+    });
+  }
+
+  function openRoutineDetail(idx){
+    gymOpenRoutineIdx = idx;
+    renderRoutineDetailBody();
+    gymRoutinesListCardEl.style.display = "none";
+    gymRoutineDetailCardEl.style.display = "block";
+  }
+
+  gymRoutineBackBtn.addEventListener("click", function(){
+    gymRoutineDetailCardEl.style.display = "none";
+    gymRoutinesListCardEl.style.display = "block";
+    renderGymRoutinesList();
+  });
+
+  // ---------- GYM: añadir manual ----------
+  var MUSCLE_ZONES_NO_ALL = MUSCLE_ZONES.filter(function(z){ return z.key !== null; });
+
+  function renderGymManualZoneChips(){
+    buildZoneChipsUI(gymManualZoneChipsEl, function(){ return gymManualSelectedZone; }, function(key){
+      gymManualSelectedZone = key;
+      renderGymManualZoneChips();
+    }, MUSCLE_ZONES_NO_ALL);
+  }
+
+  function resetPendingGymPhoto(){
+    pendingGymPhotoId = null;
+    pendingGymPhotoBlob = null;
+    gymManualPhotoPreview.style.display = "none";
+    gymManualPhotoInput.value = "";
+    gymManualPhotoStatus.textContent = "Añadir foto (opcional)";
+  }
+
+  gymManualPhotoInput.addEventListener("change", function(){
+    var file = gymManualPhotoInput.files[0];
+    if(!file) return;
+    gymManualPhotoStatus.textContent = "Procesando foto…";
+    compressImage(file, 900, 0.65).then(function(blob){
+      pendingGymPhotoBlob = blob;
+      pendingGymPhotoId = "gymphoto_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+      gymManualPhotoPreview.src = URL.createObjectURL(blob);
+      gymManualPhotoPreview.style.display = "inline-block";
+      gymManualPhotoStatus.textContent = "Foto lista ✓";
+    }).catch(function(){
+      gymManualPhotoStatus.textContent = "No se pudo procesar la foto";
+    });
+  });
+
+  function renderGymManualList(){
+    var list = config.customExercises || [];
+    if(list.length === 0){
+      gymManualListEl.innerHTML = '<div class="empty" style="border:none;">Aún no has añadido ejercicios propios.</div>';
+      return;
+    }
+    gymManualListEl.innerHTML = list.map(function(ex, idx){
+      return '<div class="gym-routine-item" data-idx="' + idx + '" style="display:block;">' +
+        '<div style="display:flex; align-items:center; justify-content:space-between;">' +
+          '<div><div class="gym-routine-name">' + ex.name + '</div><div class="gym-routine-meta">' + muscleLabel(ex.zone) + '</div></div>' +
+          '<button class="entry-del" data-role="delmanual" data-idx="' + idx + '">✕</button>' +
+        '</div>' +
+        buildVideoHtml(ex.id) +
+      '</div>';
+    }).join("");
+    gymManualListEl.querySelectorAll('[data-role="delmanual"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var idx = Number(btn.dataset.idx);
+        var removed = config.customExercises[idx];
+        config.customExercises.splice(idx, 1);
+        saveConfig(config);
+        if(removed && removed.photoId){ deletePhotoBlob(removed.photoId); }
+        rebuildGymAllExercises();
+        renderGymManualList();
+        renderGymResults();
+        renderHome();
+      });
+    });
+    wireVideoButtons(gymManualListEl, renderGymManualList);
+  }
+
+  gymManualSaveBtn.addEventListener("click", function(){
+    var name = gymManualNameEl.value.trim();
+    if(!name){ gymManualStatusEl.textContent = "Pon un nombre al ejercicio"; return; }
+    if(!gymManualSelectedZone){ gymManualStatusEl.textContent = "Elige una zona muscular"; return; }
+    var entry = {
+      id: "custom_" + Date.now(),
+      name: name,
+      zone: gymManualSelectedZone,
+      instructions: gymManualInstructionsEl.value.trim(),
+      photoId: pendingGymPhotoId || null
+    };
+    if(pendingGymPhotoId){ savePhotoBlob(pendingGymPhotoId, pendingGymPhotoBlob); }
+    config.customExercises.push(entry);
+    var videoUrl = gymManualVideoUrlEl.value.trim();
+    if(videoUrl){ config.exerciseVideos[entry.id] = videoUrl; }
+    saveConfig(config);
+    rebuildGymAllExercises();
+
+    gymManualNameEl.value = "";
+    gymManualInstructionsEl.value = "";
+    gymManualVideoUrlEl.value = "";
+    gymManualSelectedZone = null;
+    resetPendingGymPhoto();
+    renderGymManualZoneChips();
+    renderGymManualList();
+    renderGymResults();
+    renderHome();
+    gymManualStatusEl.textContent = "Guardado ✓";
+  });
+
+  // ---------- GYM: plan automático (rotación 3 zonas + progresión 500 reps) ----------
+  var GYM_ZONE_META = [
+    { key: "core", label: "Core", tags: ["abdominals"] },
+    { key: "glutes", label: "Glúteo", tags: ["glutes"] },
+    { key: "upperback", label: "Espalda alta", tags: ["traps", "middle back"] }
+  ];
+  var GYM_CYCLE = [
+    { label: "Día 1", zones: ["core", "glutes"], rest: "upperback" },
+    { label: "Día 2", zones: ["core", "upperback"], rest: "glutes" },
+    { label: "Día 3", zones: ["upperback", "glutes"], rest: "core" }
+  ];
+  var GYM_EXERCISES_PER_ZONE = 2;
+  var GYM_OTROS_PER_SESSION = 2;
+  var GYM_LEVELUP_REPS = 500;
+  var HOME_EQUIPMENT = ["dumbbell", "bands", "body only"];
+
+  var gymEquipMode = config.gymPlan.equipment || "home";
+  var gymZonePickOpen = null; // { zoneKey, slotIdx } | null
+  var gymZonePickTerm = "";
+  var gymOtrosPickOpen = false;
+
+  var gymTodayDayLabelEl = document.getElementById("gymTodayDayLabel");
+  var gymTodaySubEl = document.getElementById("gymTodaySub");
+  var gymTodayBodyEl = document.getElementById("gymTodayBody");
+  var gymPlanZonesEl = document.getElementById("gymPlanZones");
+  var gymOtrosListEl = document.getElementById("gymOtrosList");
+  var gymOtrosAddBtnEl = document.getElementById("gymOtrosAddBtn");
+  var gymOtrosMiniSearchEl = document.getElementById("gymOtrosMiniSearch");
+  var gymOtrosSearchInputEl = document.getElementById("gymOtrosSearchInput");
+  var gymOtrosResultsEl = document.getElementById("gymOtrosResults");
+  var gymEquipHomeBtnEl = document.getElementById("gymEquipHomeBtn");
+  var gymEquipGymBtnEl = document.getElementById("gymEquipGymBtn");
+
+  function zoneMetaByKey(zk){
+    var f = GYM_ZONE_META.filter(function(z){ return z.key === zk; });
+    return f.length ? f[0] : null;
+  }
+
+  function passesEquipment(ex){
+    if(gymEquipMode !== "home") return true;
+    if(!ex || ex.source === "custom") return true;
+    if(!ex.equipment) return true;
+    return HOME_EQUIPMENT.indexOf(ex.equipment) !== -1;
+  }
+
+  function findExerciseMeta(id){
+    var f = gymAllExercises.filter(function(e){ return e.id === id; });
+    return f.length ? f[0] : null;
+  }
+
+  function dateKeyToEpochDays(k){
+    var d = parseKey(k);
+    return Math.floor(d.getTime() / 86400000);
+  }
+
+  function getCycleDayForKey(k){
+    var days = dateKeyToEpochDays(k);
+    var idx = ((days % 3) + 3) % 3;
+    return GYM_CYCLE[idx];
+  }
+
+  function getOtrosForKey(k, pool, countNeeded){
+    if(!pool || !pool.length) return [];
+    var days = dateKeyToEpochDays(k);
+    var n = pool.length;
+    var picks = [];
+    var howMany = Math.min(countNeeded, n);
+    for(var i=0;i<howMany;i++){
+      picks.push(pool[(days + i) % n]);
+    }
+    return picks;
+  }
+
+  // ---- Mi plan: zonas clave ----
+  function renderGymPlanZones(){
+    var html = "";
+    GYM_ZONE_META.forEach(function(zm){
+      var slots = config.gymPlan.slots[zm.key] || [];
+      html += '<div class="card gym-zone-card">';
+      html += '<h2>' + zm.label + '</h2>';
+      for(var i=0;i<GYM_EXERCISES_PER_ZONE;i++){
+        var slot = slots[i];
+        html += '<div class="gym-plan-slot">';
+        if(slot){
+          var meta = findExerciseMeta(slot.id);
+          var displayName = meta ? meta.name : slot.name;
+          var displayNameEs = meta ? ensureNameEs(meta) : "";
+          var pct = Math.min(100, Math.round(((slot.totalReps||0) / GYM_LEVELUP_REPS) * 100));
+          var canLevelUp = (slot.totalReps||0) >= GYM_LEVELUP_REPS;
+          html += '<div class="gym-plan-slot-name">' + displayName + (canLevelUp ? ' <span style="color:var(--accent2);">¡Sube de nivel! ✅</span>' : '') + '</div>';
+          if(displayNameEs){ html += '<div class="gym-plan-slot-name-es">' + displayNameEs + '</div>'; }
+          html += buildVideoHtml(slot.id);
+          html += '<div class="gym-plan-slot-row">';
+          html += 'S <input type="number" min="1" data-role="slotsets" data-zone="' + zm.key + '" data-i="' + i + '" value="' + slot.sets + '">';
+          html += 'R <input type="number" min="1" data-role="slotreps" data-zone="' + zm.key + '" data-i="' + i + '" value="' + slot.reps + '">';
+          html += '<input type="text" class="gym-weight-input" data-role="slotweight" data-zone="' + zm.key + '" data-i="' + i + '" value="' + (slot.weight || "") + '" placeholder="kg/variante">';
+          html += '<button class="entry-del" data-role="delslot" data-zone="' + zm.key + '" data-i="' + i + '">✕</button>';
+          html += '</div>';
+          html += '<div class="gym-plan-slot-progress' + (canLevelUp ? ' levelup' : '') + '"><div style="height:100%;width:' + pct + '%;background:currentColor;border-radius:3px;"></div></div>';
+          html += '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + (slot.totalReps||0) + ' / ' + GYM_LEVELUP_REPS + ' reps acumuladas' + (canLevelUp ? ' — ya puedes subir peso o variante' : '') + '</div>';
+        } else {
+          html += '<button class="gym-plan-pick-btn" data-role="pickslot" data-zone="' + zm.key + '" data-i="' + i + '">+ Añadir ejercicio</button>';
+          if(gymZonePickOpen && gymZonePickOpen.zoneKey === zm.key && gymZonePickOpen.slotIdx === i){
+            html += '<div class="gym-plan-mini-search open">';
+            html += '<input type="text" class="gym-search-input" data-role="zonepickinput" data-zone="' + zm.key + '" data-i="' + i + '" placeholder="Buscar ejercicio…" value="' + gymZonePickTerm.replace(/"/g, "&quot;") + '">';
+            html += '<div class="gym-plan-mini-results" data-role="zonepickresults" data-zone="' + zm.key + '" data-i="' + i + '"></div>';
+            html += '</div>';
+          }
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+    gymPlanZonesEl.innerHTML = html;
+    wireGymPlanZoneEvents();
+    wireVideoButtons(gymPlanZonesEl, renderGymPlanZones);
+  }
+
+  function wireGymPlanZoneEvents(){
+    gymPlanZonesEl.querySelectorAll('[data-role="slotsets"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        config.gymPlan.slots[inp.dataset.zone][Number(inp.dataset.i)].sets = parseInt(inp.value, 10) || 1;
+        saveConfig(config);
+        renderGymToday();
+      });
+    });
+    gymPlanZonesEl.querySelectorAll('[data-role="slotreps"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        config.gymPlan.slots[inp.dataset.zone][Number(inp.dataset.i)].reps = parseInt(inp.value, 10) || 1;
+        saveConfig(config);
+        renderGymToday();
+      });
+    });
+    gymPlanZonesEl.querySelectorAll('[data-role="slotweight"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        config.gymPlan.slots[inp.dataset.zone][Number(inp.dataset.i)].weight = inp.value;
+        saveConfig(config);
+        renderGymToday();
+      });
+    });
+    gymPlanZonesEl.querySelectorAll('[data-role="delslot"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        config.gymPlan.slots[btn.dataset.zone].splice(Number(btn.dataset.i), 1);
+        saveConfig(config);
+        renderGymPlanZones();
+        renderGymToday();
+        renderHome();
+      });
+    });
+    gymPlanZonesEl.querySelectorAll('[data-role="pickslot"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var z = btn.dataset.zone, i = Number(btn.dataset.i);
+        if(gymZonePickOpen && gymZonePickOpen.zoneKey === z && gymZonePickOpen.slotIdx === i){
+          gymZonePickOpen = null;
+        } else {
+          gymZonePickOpen = { zoneKey: z, slotIdx: i };
+          gymZonePickTerm = "";
+        }
+        renderGymPlanZones();
+      });
+    });
+    gymPlanZonesEl.querySelectorAll('[data-role="zonepickinput"]').forEach(function(inp){
+      inp.addEventListener("input", function(){
+        gymZonePickTerm = inp.value;
+        renderZonePickResults(inp.dataset.zone, Number(inp.dataset.i));
+      });
+      inp.focus();
+      inp.selectionStart = inp.selectionEnd = inp.value.length;
+    });
+    if(gymZonePickOpen){ renderZonePickResults(gymZonePickOpen.zoneKey, gymZonePickOpen.slotIdx); }
+  }
+
+  function renderZonePickResults(zoneKey, slotIdx){
+    var resultsEl = gymPlanZonesEl.querySelector('[data-role="zonepickresults"][data-zone="' + zoneKey + '"][data-i="' + slotIdx + '"]');
+    if(!resultsEl) return;
+    var zm = zoneMetaByKey(zoneKey);
+    var term = gymZonePickTerm.trim().toLowerCase();
+    var filtered = gymAllExercises.filter(function(ex){
+      var matchesZone = (ex.primaryMuscles || []).some(function(m){ return zm.tags.indexOf(m) !== -1; });
+      var matchesTerm = !term || ex.name.toLowerCase().indexOf(term) !== -1 || ensureNameEs(ex).toLowerCase().indexOf(term) !== -1;
+      return matchesZone && matchesTerm && passesEquipment(ex);
+    }).slice(0, 25);
+    if(!filtered.length){
+      resultsEl.innerHTML = '<div class="empty" style="border:none;">Sin resultados para esta zona' + (gymEquipMode === "home" ? " con el equipo de casa" : "") + '.</div>';
+      return;
+    }
+    resultsEl.innerHTML = filtered.map(function(ex){
+      return '<div class="gym-plan-mini-result" data-id="' + ex.id + '"><div>' + ex.name + '</div><div class="gym-plan-mini-result-es">' + ensureNameEs(ex) + '</div></div>';
+    }).join("");
+    resultsEl.querySelectorAll(".gym-plan-mini-result").forEach(function(row){
+      row.addEventListener("click", function(){
+        assignSlotExercise(zoneKey, slotIdx, row.dataset.id);
+      });
+    });
+  }
+
+  function assignSlotExercise(zoneKey, slotIdx, exId){
+    var ex = findExerciseMeta(exId);
+    if(!ex) return;
+    config.gymPlan.slots[zoneKey][slotIdx] = { id: ex.id, name: ex.name, sets: 3, reps: 12, weight: "", totalReps: 0 };
+    saveConfig(config);
+    gymZonePickOpen = null;
+    renderGymPlanZones();
+    renderGymToday();
+    renderHome();
+  }
+
+  // ---- Mi plan: "otros" (resto del cuerpo, rotan cada sesión) ----
+  function renderGymOtrosList(){
+    var pool = config.gymPlan.otrosPool || [];
+    if(!pool.length){
+      gymOtrosListEl.innerHTML = '<div class="empty" style="border:none;">Añade unos 6-8 ejercicios variados para ir rotando y trabajar todo el cuerpo.</div>';
+      return;
+    }
+    gymOtrosListEl.innerHTML = pool.map(function(item, idx){
+      var meta = findExerciseMeta(item.id);
+      var itemNameEs = meta ? ensureNameEs(meta) : "";
+      var pct = Math.min(100, Math.round(((item.totalReps||0) / GYM_LEVELUP_REPS) * 100));
+      var canLevelUp = (item.totalReps||0) >= GYM_LEVELUP_REPS;
+      return '<div class="gym-plan-slot">' +
+        '<div class="gym-plan-slot-name">' + item.name + (canLevelUp ? ' <span style="color:var(--accent2);">¡Sube de nivel! ✅</span>' : '') + '</div>' +
+        (itemNameEs ? '<div class="gym-plan-slot-name-es">' + itemNameEs + '</div>' : "") +
+        buildVideoHtml(item.id) +
+        '<div class="gym-plan-slot-row">' +
+          'S <input type="number" min="1" data-role="otrosets" data-i="' + idx + '" value="' + item.sets + '">' +
+          'R <input type="number" min="1" data-role="otroreps" data-i="' + idx + '" value="' + item.reps + '">' +
+          '<input type="text" class="gym-weight-input" data-role="otroweight" data-i="' + idx + '" value="' + (item.weight || "") + '" placeholder="kg/variante">' +
+          '<button class="entry-del" data-role="delotros" data-i="' + idx + '">✕</button>' +
+        '</div>' +
+        '<div class="gym-plan-slot-progress' + (canLevelUp ? ' levelup' : '') + '"><div style="height:100%;width:' + pct + '%;background:currentColor;border-radius:3px;"></div></div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + (item.totalReps||0) + ' / ' + GYM_LEVELUP_REPS + ' reps acumuladas' + (canLevelUp ? ' — ya puedes subir peso o variante' : '') + '</div>' +
+      '</div>';
+    }).join("");
+    gymOtrosListEl.querySelectorAll('[data-role="otrosets"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        config.gymPlan.otrosPool[Number(inp.dataset.i)].sets = parseInt(inp.value, 10) || 1;
+        saveConfig(config);
+        renderGymToday();
+      });
+    });
+    gymOtrosListEl.querySelectorAll('[data-role="otroreps"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        config.gymPlan.otrosPool[Number(inp.dataset.i)].reps = parseInt(inp.value, 10) || 1;
+        saveConfig(config);
+        renderGymToday();
+      });
+    });
+    gymOtrosListEl.querySelectorAll('[data-role="otroweight"]').forEach(function(inp){
+      inp.addEventListener("change", function(){
+        config.gymPlan.otrosPool[Number(inp.dataset.i)].weight = inp.value;
+        saveConfig(config);
+        renderGymToday();
+      });
+    });
+    gymOtrosListEl.querySelectorAll('[data-role="delotros"]').forEach(function(btn){
+      btn.addEventListener("click", function(){
+        config.gymPlan.otrosPool.splice(Number(btn.dataset.i), 1);
+        saveConfig(config);
+        renderGymOtrosList();
+        renderGymToday();
+      });
+    });
+
+    wireVideoButtons(gymOtrosListEl, renderGymOtrosList);
+  }
+
+  gymOtrosAddBtnEl.addEventListener("click", function(){
+    gymOtrosPickOpen = !gymOtrosPickOpen;
+    gymOtrosMiniSearchEl.classList.toggle("open", gymOtrosPickOpen);
+    if(gymOtrosPickOpen){
+      gymOtrosSearchInputEl.value = "";
+      gymOtrosSearchInputEl.focus();
+      renderOtrosSearchResults();
+    }
+  });
+
+  gymOtrosSearchInputEl.addEventListener("input", renderOtrosSearchResults);
+
+  function renderOtrosSearchResults(){
+    var term = gymOtrosSearchInputEl.value.trim().toLowerCase();
+    var filtered = gymAllExercises.filter(function(ex){
+      return passesEquipment(ex) && (!term || ex.name.toLowerCase().indexOf(term) !== -1 || ensureNameEs(ex).toLowerCase().indexOf(term) !== -1);
+    }).slice(0, 25);
+    if(!filtered.length){
+      gymOtrosResultsEl.innerHTML = '<div class="empty" style="border:none;">Sin resultados.</div>';
+      return;
+    }
+    gymOtrosResultsEl.innerHTML = filtered.map(function(ex){
+      return '<div class="gym-plan-mini-result" data-id="' + ex.id + '"><div>' + ex.name + '</div><div class="gym-plan-mini-result-es">' + ensureNameEs(ex) + '</div></div>';
+    }).join("");
+    gymOtrosResultsEl.querySelectorAll(".gym-plan-mini-result").forEach(function(row){
+      row.addEventListener("click", function(){
+        addOtrosExercise(row.dataset.id);
+      });
+    });
+  }
+
+  function addOtrosExercise(exId){
+    var already = (config.gymPlan.otrosPool || []).filter(function(o){ return o.id === exId; }).length > 0;
+    if(already) return;
+    var ex = findExerciseMeta(exId);
+    if(!ex) return;
+    config.gymPlan.otrosPool.push({ id: ex.id, name: ex.name, sets: 3, reps: 12, weight: "", totalReps: 0 });
+    saveConfig(config);
+    gymOtrosPickOpen = false;
+    gymOtrosMiniSearchEl.classList.remove("open");
+    renderGymOtrosList();
+    renderGymToday();
+    renderHome();
+  }
+
+  // ---- Equipo: casa / gym completo ----
+  function setGymEquipMode(mode){
+    gymEquipMode = mode;
+    config.gymPlan.equipment = mode;
+    saveConfig(config);
+    gymEquipHomeBtnEl.classList.toggle("active", mode === "home");
+    gymEquipGymBtnEl.classList.toggle("active", mode === "gym");
+    renderGymResults();
+    if(gymZonePickOpen){ renderZonePickResults(gymZonePickOpen.zoneKey, gymZonePickOpen.slotIdx); }
+    if(gymOtrosPickOpen){ renderOtrosSearchResults(); }
+  }
+  gymEquipHomeBtnEl.addEventListener("click", function(){ setGymEquipMode("home"); });
+  gymEquipGymBtnEl.addEventListener("click", function(){ setGymEquipMode("gym"); });
+  gymEquipHomeBtnEl.classList.toggle("active", gymEquipMode === "home");
+  gymEquipGymBtnEl.classList.toggle("active", gymEquipMode === "gym");
+
+  // ---- Hoy: qué tengo que hacer ahora mismo ----
+  function getTodayDayDef(k){
+    var cycleDay = getCycleDayForKey(k);
+    var otrosPicks = getOtrosForKey(k, config.gymPlan.otrosPool || [], GYM_OTROS_PER_SESSION);
+    return { label: cycleDay.label, zones: cycleDay.zones, rest: cycleDay.rest, otros: otrosPicks };
+  }
+
+  function buildTodayExerciseHtml(ref, done){
+    if(!ref) return "";
+    var meta = findExerciseMeta(ref.id);
+    var displayName = meta ? meta.name : ref.name;
+    var displayNameEs = meta ? ensureNameEs(meta) : "";
+    var thumbHtml = "";
+    if(meta && meta.images && meta.images.length){
+      thumbHtml = '<img class="gym-today-ex-thumb" src="' + GYM_IMG_BASE + meta.images[0] + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">';
+    } else if(meta && meta.photoId){
+      thumbHtml = '<img class="gym-today-ex-thumb" data-photo-id="' + meta.photoId + '" alt="">';
+    } else {
+      thumbHtml = '<div class="gym-today-ex-thumb"></div>';
+    }
+    var canLevelUp = (ref.totalReps || 0) >= GYM_LEVELUP_REPS;
+    var metaText = ref.sets + " series x " + ref.reps + " reps" + (ref.weight ? " · " + ref.weight : "");
+    return '<div class="gym-today-ex' + (done ? " done" : "") + '" data-ref-id="' + ref.id + '">' +
+      thumbHtml +
+      '<div class="gym-today-ex-info">' +
+        '<div class="gym-today-ex-name">' + displayName + '</div>' +
+        (displayNameEs ? '<div class="gym-today-ex-name-es">' + displayNameEs + '</div>' : "") +
+        '<div class="gym-today-ex-meta' + (canLevelUp ? " levelup" : "") + '">' + metaText + (canLevelUp ? " · ¡puedes subir de nivel! ✅" : "") + '</div>' +
+        buildVideoHtml(ref.id) +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderGymToday(){
+    var dayDef = getTodayDayDef(viewedKey);
+    var zoneLabels = dayDef.zones.map(function(zk){ return zoneMetaByKey(zk).label; }).join(" + ");
+    var restLabel = zoneMetaByKey(dayDef.rest).label;
+    var isToday = (viewedKey === todayKeyStr);
+    gymTodayDayLabelEl.textContent = dayDef.label + ": " + zoneLabels;
+    gymTodaySubEl.textContent = "Descansa: " + restLabel + (isToday ? "" : " · " + parseKey(viewedKey).toLocaleDateString("es-ES",{weekday:"short", day:"numeric", month:"short"}));
+
+    var zoneRefs = dayDef.zones.map(function(zk){
+      return (config.gymPlan.slots[zk] || []).filter(function(s){ return s; });
+    });
+    var missing = [];
+    dayDef.zones.forEach(function(zk, i){
+      if(!zoneRefs[i] || zoneRefs[i].length < GYM_EXERCISES_PER_ZONE){
+        missing.push(zoneMetaByKey(zk).label);
+      }
+    });
+
+    var already = viewed.gymSession && viewed.gymSession.completed;
+
+    if(missing.length){
+      gymTodayBodyEl.innerHTML = '<div class="card"><div class="empty" style="border:none;">Aún te faltan ejercicios por asignar en: ' + missing.join(", ") + '. Ve a "🎯 Mi plan" para completarlos.</div></div>';
+      return;
+    }
+
+    var superA = [zoneRefs[0][0], zoneRefs[1][0], dayDef.otros[0]].filter(function(x){ return x; });
+    var superB = [zoneRefs[0][1], zoneRefs[1][1], dayDef.otros[1]].filter(function(x){ return x; });
+
+    var html = "";
+    html += '<div class="card gym-super-card"><div class="gym-super-title">Superserie A · 3 rondas</div>' +
+      superA.map(function(ref){ return buildTodayExerciseHtml(ref, already); }).join("") + '</div>';
+    html += '<div class="card gym-super-card"><div class="gym-super-title">Superserie B · 3 rondas</div>' +
+      superB.map(function(ref){ return buildTodayExerciseHtml(ref, already); }).join("") + '</div>';
+
+    if(already){
+      html += '<div class="card"><div class="empty" style="border:none;">Sesión de ' + parseKey(viewedKey).toLocaleDateString("es-ES",{weekday:"long", day:"numeric", month:"short"}) + ' completada ✓</div></div>';
+    } else {
+      html += '<button class="gym-complete-btn" id="gymCompleteBtn">✅ Sesión completada</button>';
+    }
+
+    gymTodayBodyEl.innerHTML = html;
+
+    gymTodayBodyEl.querySelectorAll(".gym-today-ex-thumb[data-photo-id]").forEach(function(img){
+      getPhotoBlob(img.dataset.photoId).then(function(blob){
+        if(blob) img.src = URL.createObjectURL(blob);
+      });
+    });
+
+    wireVideoButtons(gymTodayBodyEl, renderGymToday);
+
+    var completeBtn = document.getElementById("gymCompleteBtn");
+    if(completeBtn){
+      completeBtn.addEventListener("click", function(){
+        completeGymSession(superA.concat(superB));
+      });
+    }
+  }
+
+  function completeGymSession(allRefs){
+    if(viewed.gymSession && viewed.gymSession.completed) return;
+    var doneList = [];
+    allRefs.forEach(function(ref){
+      var addedReps = (ref.sets || 0) * (ref.reps || 0);
+      ref.totalReps = (ref.totalReps || 0) + addedReps;
+      doneList.push({ id: ref.id, name: ref.name, sets: ref.sets, reps: ref.reps, weight: ref.weight, addedReps: addedReps });
+    });
+    viewed.gymSession = { completed: true, completedAt: Date.now(), exercises: doneList };
+    saveConfig(config);
+    saveAll(data);
+    renderGymToday();
+    renderGymPlanZones();
+    renderGymOtrosList();
+    renderHome();
+  }
+
+  renderGymManualZoneChips();
+  renderGymManualList();
+  renderGymRoutinesList();
+  renderGymResults();
+  renderGymPlanZones();
+  renderGymOtrosList();
+  renderGymToday();
+  loadGymExercises(false);
+
+  renderCoffee();
+  renderSupplements();
+  renderMeals();
+  renderAyuno();
+  renderSleep();
+  renderWeight();
+  renderPrep();
+  renderNotes();
+  SIMPLE_HABITS.forEach(renderSimpleHabit);
+  renderHome();
+
+  } // fin de runApp()
+
+  // ---------- Arranque: comprobar sesión y pedir contraseña si hace falta ----------
+  var loginGateEl = document.getElementById("loginGate");
+  var loginFormEl = document.getElementById("loginForm");
+  var loginEmailEl = document.getElementById("loginEmail");
+  var loginPasswordEl = document.getElementById("loginPassword");
+  var signupBtnEl = document.getElementById("signupBtn");
+  var loginErrorEl = document.getElementById("loginError");
+  var loginSubmitBtnEl = document.getElementById("loginSubmitBtn");
+  var appStarted = false;
+
+  function showLoginGate(message){
+    loginGateEl.style.display = "flex";
+    loginErrorEl.textContent = message || "";
+  }
+  function hideLoginGate(){
+    loginGateEl.style.display = "none";
+  }
+
+  function loadFromSupabase(){
+    return Promise.all([
+      sb.from("mh_days").select("day,rec").limit(5000),
+      sb.from("mh_config").select("config").maybeSingle()
+    ]).then(function(res){
+      if(res[0].error) throw res[0].error;
+      if(res[1].error) throw res[1].error;
+      var data = {};
+      (res[0].data || []).forEach(function(row){ data[row.day] = row.rec; });
+      bootState.data = data;
+      bootState.config = res[1].data ? res[1].data.config : null;
+      syncedDays = {};
+      Object.keys(data).forEach(function(d){ syncedDays[d] = JSON.stringify(data[d]); });
+      syncedConfig = bootState.config ? JSON.stringify(bootState.config) : null;
+    });
+  }
+
+  function startAfterLogin(session){
+    currentUid = session.user.id;
+    return loadFromSupabase().then(function(){
+      hideLoginGate();
+      if(!appStarted){
+        appStarted = true;
+        runApp();
+      }
+    });
+  }
+
+  function boot(){
+    sb.auth.getSession().then(function(res){
+      var session = res.data && res.data.session;
+      if(!session){ showLoginGate(""); return; }
+      return startAfterLogin(session);
+    }).catch(function(err){
+      showLoginGate("No se pudo conectar (" + (err.message || err) + "). Comprueba tu conexión e inténtalo de nuevo.");
+    });
+  }
+
+  loginFormEl.addEventListener("submit", function(ev){
+    ev.preventDefault();
+    loginSubmitBtnEl.disabled = true;
+    loginErrorEl.textContent = "";
+    sb.auth.signInWithPassword({ email: loginEmailEl.value.trim(), password: loginPasswordEl.value }).then(function(res){
+      loginSubmitBtnEl.disabled = false;
+      if(res.error || !res.data.session){
+        showLoginGate("Email o contraseña incorrectos.");
+        return;
+      }
+      loginPasswordEl.value = "";
+      return startAfterLogin(res.data.session);
+    }).catch(function(){
+      loginSubmitBtnEl.disabled = false;
+      showLoginGate("No se pudo conectar.");
+    });
+  });
+
+  signupBtnEl.addEventListener("click", function(){
+    if(!loginFormEl.reportValidity()) return;
+    loginErrorEl.textContent = "";
+    sb.auth.signUp({ email: loginEmailEl.value.trim(), password: loginPasswordEl.value }).then(function(res){
+      if(res.error){ showLoginGate(res.error.message); return; }
+      if(res.data.session){
+        loginPasswordEl.value = "";
+        return startAfterLogin(res.data.session);
+      }
+      showLoginGate("Cuenta creada. Revisa tu correo para confirmarla y luego pulsa Entrar.");
+    }).catch(function(){ showLoginGate("No se pudo conectar."); });
+  });
+
+  boot();
+
+})();
+</script>
+</body>
+</html>
