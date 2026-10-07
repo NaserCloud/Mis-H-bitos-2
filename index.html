@@ -52,6 +52,7 @@
     background:var(--accent); color:#1a1200; border-radius:8px; font-size:12px; font-weight:700; padding:4px 10px;
   }
   main{padding:8px 16px 20px;}
+  .app-version{font-size:11px; color:var(--muted); opacity:.7; margin-top:2px;}
   .screen{display:none;}
   .screen.active{display:block;}
   .back-btn{
@@ -451,6 +452,7 @@
 <header>
   <h1>Mis Hábitos</h1>
   <div class="date" id="dateLabel"></div>
+  <div class="app-version">Versión 2.0 · 7 oct 2026</div>
   <div class="daynav" id="dayNav">
     <button id="dayPrevBtn" aria-label="Día anterior">◀</button>
     <div class="daynav-label" id="dayLabel">Hoy</div>
@@ -821,6 +823,7 @@
   <form id="loginForm" class="login-card">
     <div class="login-title">Mis Hábitos</div>
     <div class="login-sub">Inicia sesión para continuar</div>
+    <div class="app-version" style="text-align:center;">Versión 2.0 · 7 oct 2026</div>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required>
     <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required minlength="6">
     <button type="submit" id="loginSubmitBtn">Entrar</button>
