@@ -48,6 +48,13 @@
   .daynav-label{
     flex:1; text-align:center; font-size:13px; font-weight:600; text-transform:capitalize;
   }
+  .daynav.is-today{background:#24472d; border-color:#3f7a50;}
+  .daynav.not-today{background:#5a2323; border-color:#a04646;}
+  .home-card.done{background:#24472d; border-color:#3f7a50;}
+  .home-card.notes-card{background:#000; border-color:#333;}
+  .sleep-hm{display:flex; align-items:center; gap:6px; flex:1;}
+  .sleep-hm input{width:70px;}
+  .meal-edit-btn{background:none; border:none; color:var(--muted); font-size:16px; padding:4px 8px;}
   #dayTodayBtn{
     background:var(--accent); color:#1a1200; border-radius:8px; font-size:12px; font-weight:700; padding:4px 10px;
   }
@@ -452,7 +459,7 @@
 <header>
   <h1>Mis Hábitos</h1>
   <div class="date" id="dateLabel"></div>
-  <div class="app-version">Versión 2.0 · 7 oct 2026</div>
+  <div class="app-version">Versión 2.1 · 11 oct 2026</div>
   <div class="daynav" id="dayNav">
     <button id="dayPrevBtn" aria-label="Día anterior">◀</button>
     <div class="daynav-label" id="dayLabel">Hoy</div>
@@ -616,7 +623,7 @@
     <div class="card">
       <h2>¿Cuánto has dormido?</h2>
       <div class="weight-input-row">
-        <input type="number" id="sleepHoursInput" step="0.25" inputmode="decimal" placeholder="horas">
+        <div class="sleep-hm"><input type="number" id="sleepHoursInput" min="0" max="24" step="1" inputmode="numeric" placeholder="horas"><span>h</span><input type="number" id="sleepMinsInput" min="0" max="59" step="1" inputmode="numeric" placeholder="min"><span>min</span></div>
         <button id="saveSleepHoursBtn">Guardar</button>
       </div>
       <div class="weight-status" id="sleepHoursStatus"></div>
@@ -651,6 +658,13 @@
   </section>
 
   <!-- PREPARACIÓN DÍA SIGUIENTE -->
+  <section class="screen" id="screen-health">
+    <div class="card">
+      <div class="slot-title"><span><span class="emoji">🧴</span>Salud</span></div>
+      <div id="healthList"></div>
+    </div>
+  </section>
+
   <section class="screen" id="screen-prep">
     <div class="card" style="background:var(--card2);">
       <div style="font-size:13px; color:var(--muted); line-height:1.5;">
@@ -814,6 +828,9 @@
   <button class="tab-btn" data-screen="screen-gym">
     <span class="ic">🏋️</span>Gym
   </button>
+  <button class="tab-btn" data-screen="screen-health">
+    <span class="ic">🧴</span>Salud
+  </button>
   <button class="tab-btn" data-screen="screen-notes">
     <span class="ic">📝</span>Notas
   </button>
@@ -823,7 +840,7 @@
   <form id="loginForm" class="login-card">
     <div class="login-title">Mis Hábitos</div>
     <div class="login-sub">Inicia sesión para continuar</div>
-    <div class="app-version" style="text-align:center;">Versión 2.0 · 7 oct 2026</div>
+    <div class="app-version" style="text-align:center;">Versión 2.1 · 11 oct 2026</div>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required>
     <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required minlength="6">
     <button type="submit" id="loginSubmitBtn">Entrar</button>
@@ -874,6 +891,19 @@
     { key: "read", label: "Lectura", emoji: "📖", sub: "Meta: 15 min de lectura" },
     { key: "luzroja", label: "Luz Roja", emoji: "🔴", sub: "Meta: 15 min de luz roja" }
   ];
+
+  var HEALTH_ITEMS = [
+    { key: "irrigador", label: "Irrigador" },
+    { key: "exfoliacion", label: "Exfoliación" },
+    { key: "licoforte", label: "Licoforte noche" },
+    { key: "serum", label: "Sérum" },
+    { key: "cremacuerpo", label: "Crema hidratante cuerpo" }
+  ];
+  function fmtHM(h){
+    var tot = Math.round(h * 60);
+    var hh = Math.floor(tot / 60), mm = tot % 60;
+    return hh + "h " + (mm < 10 ? "0" : "") + mm + "m";
+  }
 
   // ---------- ALMACÉN DE FOTOS (ahora en el servidor, no en el navegador) ----------
   function blobToDataUrl(blob){
@@ -1092,6 +1122,10 @@
     SIMPLE_HABITS.forEach(function(h){
       if(typeof data[k][h.key] !== "boolean"){ data[k][h.key] = false; }
     });
+    if(!data[k].health || typeof data[k].health !== "object"){ data[k].health = {}; }
+    HEALTH_ITEMS.forEach(function(h){
+      if(typeof data[k].health[h.key] !== "boolean"){ data[k].health[h.key] = false; }
+    });
     // make sure every configured supplement exists in today's record
     SLOT_KEYS.forEach(function(slot){
       config.supplements[slot].forEach(function(name){
@@ -1137,6 +1171,7 @@
     renderSleep();
     renderWeight();
     renderPrep();
+    renderHealth();
     SIMPLE_HABITS.forEach(renderSimpleHabit);
     renderDayNav();
     renderHome();
@@ -1157,6 +1192,8 @@
     var isToday = (viewedKey === todayKeyStr);
     dayLabelEl.textContent = isToday ? "Hoy" : parseKey(viewedKey).toLocaleDateString("es-ES",{weekday:"short", day:"numeric", month:"short"});
     dayNextBtn.disabled = isToday;
+    dayNavEl.classList.toggle("is-today", isToday);
+    dayNavEl.classList.toggle("not-today", !isToday);
     dayTodayBtn.style.display = isToday ? "none" : "inline-block";
   }
 
@@ -1297,7 +1334,7 @@
       summary: function(){
         var parts = [];
         if(viewed.sleep){ parts.push(FEELING_META[viewed.sleep].emoji + " " + FEELING_META[viewed.sleep].label); }
-        if(typeof viewed.sleepHours === "number"){ parts.push(viewed.sleepHours + "h"); }
+        if(typeof viewed.sleepHours === "number"){ parts.push(fmtHM(viewed.sleepHours)); }
         return parts.length ? parts.join(" · ") : "Sin registrar";
       }
     },
@@ -1326,6 +1363,13 @@
         var cycleDay = getCycleDayForKey(viewedKey);
         var labels = cycleDay.zones.map(function(zk){ return zoneMetaByKey(zk).label; }).join(" + ");
         return labels;
+      }
+    },
+    {
+      screen: "screen-health", label: "Salud", emoji: "🧴",
+      summary: function(){
+        var n = HEALTH_ITEMS.filter(function(h){ return viewed.health[h.key]; }).length;
+        return n + "/" + HEALTH_ITEMS.length + " hecho";
       }
     },
     {
@@ -1364,11 +1408,29 @@
     if(supPenalty > 0.4){ breakdown.push("Suplementos: -" + Math.round(supPenalty)); }
     score -= supPenalty;
 
-    var perHabit = habitsBudget / SIMPLE_HABITS.length;
+    var prepNames = config.prep || [];
+    var poolSize = SIMPLE_HABITS.length + HEALTH_ITEMS.length + 1 + prepNames.length;
+    var perHabit = habitsBudget / poolSize;
     SIMPLE_HABITS.forEach(function(h){
       if(!rec[h.key]){
         score -= perHabit;
         breakdown.push(h.label + ": -" + Math.round(perHabit));
+      }
+    });
+    HEALTH_ITEMS.forEach(function(h){
+      if(!(rec.health && rec.health[h.key])){
+        score -= perHabit;
+        breakdown.push(h.label + ": -" + Math.round(perHabit));
+      }
+    });
+    if(!(rec.gymSession && rec.gymSession.completed)){
+      score -= perHabit;
+      breakdown.push("Gym: -" + Math.round(perHabit));
+    }
+    prepNames.forEach(function(n){
+      if(!(rec.prepDone && rec.prepDone[n])){
+        score -= perHabit;
+        breakdown.push(n + ": -" + Math.round(perHabit));
       }
     });
 
@@ -1459,6 +1521,19 @@
         items.push({ icon: h.emoji, text: h.label, screen: "screen-" + h.key });
       }
     });
+    HEALTH_ITEMS.forEach(function(h){
+      if(!(rec.health && rec.health[h.key])){
+        items.push({ icon: "🧴", text: h.label, screen: "screen-health" });
+      }
+    });
+    (config.prep || []).forEach(function(n){
+      if(!(rec.prepDone && rec.prepDone[n])){
+        items.push({ icon: "🎒", text: n, screen: "screen-prep" });
+      }
+    });
+    if(!(rec.gymSession && rec.gymSession.completed)){
+      items.push({ icon: "🏋️", text: "Ejercicio / Gym", screen: "screen-gym" });
+    }
     (rec.meals || []).forEach(function(m, idx){
       if(!m.feeling){
         items.push({ icon: "🍽️", text: "Marcar cómo sentó — comida de las " + m.time, screen: "screen-meals" });
@@ -1621,11 +1696,15 @@
       var done = !!rec[h.key];
       y = drawLine(doc, y, (done ? "Sí — " : "No — ") + h.label, { color: done ? PDF_COLORS.accent2 : PDF_COLORS.muted });
     });
+    HEALTH_ITEMS.forEach(function(h){
+      var done = !!(rec.health && rec.health[h.key]);
+      y = drawLine(doc, y, (done ? "Sí — " : "No — ") + h.label, { color: done ? PDF_COLORS.accent2 : PDF_COLORS.muted });
+    });
     y += 6;
 
     y = drawSectionTitle(doc, y, "Sueño y peso");
     y = drawLine(doc, y, "Sueño: " + (rec.sleep ? FEELING_META[rec.sleep].label : "sin registrar") +
-      (typeof rec.sleepHours === "number" ? " — " + rec.sleepHours + "h" : ""));
+      (typeof rec.sleepHours === "number" ? " — " + fmtHM(rec.sleepHours) : ""));
     y = drawLine(doc, y, "Peso: " + (typeof rec.weight === "number" ? rec.weight + " kg" : "sin registrar"));
     y += 6;
 
@@ -1774,15 +1853,72 @@
 
   var homeIntroEl = document.getElementById("homeIntro");
 
+  function isCardDone(screen){
+    var v = viewed;
+    if(screen === "screen-sup"){
+      var tot = 0, dn = 0;
+      SLOT_KEYS.forEach(function(slot){
+        config.supplements[slot].forEach(function(name){
+          tot++; if(v.supplements[slot] && v.supplements[slot][name]) dn++;
+        });
+      });
+      return tot > 0 && dn === tot;
+    }
+    if(screen === "screen-meals"){
+      return v.meals.length > 0 && v.meals.every(function(m){ return !!m.feeling; });
+    }
+    if(screen === "screen-sleep"){ return typeof v.sleepHours === "number" && !!v.sleep; }
+    if(screen === "screen-weight"){ return typeof v.weight === "number"; }
+    if(screen === "screen-prep"){
+      return config.prep.length > 0 && config.prep.every(function(n){ return v.prepDone[n]; });
+    }
+    if(screen === "screen-gym"){ return !!(v.gymSession && v.gymSession.completed); }
+    if(screen === "screen-health"){
+      return HEALTH_ITEMS.every(function(h){ return v.health[h.key]; });
+    }
+    for(var i=0;i<SIMPLE_HABITS.length;i++){
+      if(screen === "screen-" + SIMPLE_HABITS[i].key) return !!v[SIMPLE_HABITS[i].key];
+    }
+    return false;
+  }
+
+  // ---------- SALUD ----------
+  var healthListEl = document.getElementById("healthList");
+  function renderHealth(){
+    healthListEl.innerHTML = "";
+    HEALTH_ITEMS.forEach(function(h){
+      var row = document.createElement("div");
+      row.className = "sup-item" + (viewed.health[h.key] ? " done" : "");
+      row.innerHTML = '<div class="sup-check">✓</div><div class="sup-name">' + h.label + '</div>';
+      row.addEventListener("click", function(){
+        viewed.health[h.key] = !viewed.health[h.key];
+        saveAll(data);
+        renderHealth();
+        renderHome();
+      });
+      healthListEl.appendChild(row);
+    });
+  }
+
   function renderHome(){
     var isToday = (viewedKey === todayKeyStr);
     homeIntroEl.textContent = isToday
       ? "¿Qué quieres registrar?"
       : "Viendo " + parseKey(viewedKey).toLocaleDateString("es-ES",{weekday:"long", day:"numeric", month:"long"}) + " — toca para ver o editar";
-    HOME_ITEMS.forEach(function(item){
+    var grid = document.getElementById("homeGrid");
+    var order = [];
+    HOME_ITEMS.forEach(function(item, i){
       var card = document.querySelector('.home-card[data-screen="' + item.screen + '"]');
-      if(card){ card.querySelector('[data-role="summary"]').textContent = item.summary(); }
+      if(!card) return;
+      card.querySelector('[data-role="summary"]').textContent = item.summary();
+      var isNotes = (item.screen === "screen-notes");
+      var done = !isNotes && isCardDone(item.screen);
+      card.classList.toggle("done", done);
+      card.classList.toggle("notes-card", isNotes);
+      order.push({ card: card, rank: isNotes ? 2 : (done ? 1 : 0), i: i });
     });
+    order.sort(function(a, b){ return a.rank - b.rank || a.i - b.i; });
+    order.forEach(function(o){ grid.appendChild(o.card); });
     renderScore();
     renderPending();
   }
@@ -1942,6 +2078,7 @@
   var pendingMealPhotoId = null;
   var pendingMealPhotoBlob = null;
   var selectedMealFeeling = null;
+  var editingMealIdx = null;
 
   function resetPendingMealPhoto(){
     pendingMealPhotoId = null;
@@ -1958,6 +2095,8 @@
   }
 
   function setMealFormOpen(open){
+    editingMealIdx = null;
+    saveMealBtn.textContent = "💾 Guardar comida";
     mealFormEl.style.display = open ? "block" : "none";
     addMealBtn.style.display = open ? "none" : "block";
     if(open){
@@ -2063,6 +2202,7 @@
         }
         return '<li class="meal-item">'+thumb+'<span class="meal-info"><span class="meal-info-row"><span>Comida '+entry.num+'</span><span class="t">'+m.time+'</span></span>'+
           '<span class="meal-feeling-row">'+feelingHtml+'</span>'+descHtml+gapHtml+'</span>'+
+          '<button class="meal-edit-btn" data-idx="'+entry.idx+'">✎</button>'+
           '<button class="entry-del" data-idx="'+entry.idx+'">✕</button></li>';
       }).join("");
       mealsListEl.querySelectorAll(".meal-thumb").forEach(function(img){
@@ -2079,6 +2219,24 @@
           saveAll(data);
           renderMeals();
           renderHome();
+        });
+      });
+      mealsListEl.querySelectorAll(".meal-edit-btn").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var idx = Number(btn.dataset.idx);
+          var m = viewed.meals[idx];
+          if(!m) return;
+          setMealFormOpen(true);
+          editingMealIdx = idx;
+          saveMealBtn.textContent = "💾 Guardar cambios";
+          mealTimeInputEl.value = m.time;
+          mealDescInputEl.value = m.desc || "";
+          updateMealFeelingAvailability();
+          if(m.feeling && !mealFeelingBtns[0].disabled){
+            selectedMealFeeling = m.feeling;
+            mealFeelingBtns.forEach(function(b){ b.classList.toggle("selected", b.dataset.feeling === m.feeling); });
+          }
+          mealFormEl.scrollIntoView({behavior:"smooth", block:"start"});
         });
       });
       mealsListEl.querySelectorAll(".entry-del").forEach(function(btn){
@@ -2124,7 +2282,15 @@
       entry.photoId = pendingMealPhotoId;
       savePhotoBlob(pendingMealPhotoId, pendingMealPhotoBlob);
     }
-    viewed.meals.push(entry);
+    if(editingMealIdx !== null && viewed.meals[editingMealIdx]){
+      var old = viewed.meals[editingMealIdx];
+      if(!entry.photoId && old.photoId){ entry.photoId = old.photoId; }
+      else if(entry.photoId && old.photoId){ deletePhotoBlob(old.photoId); }
+      if(!timeVal){ entry.time = old.time; entry.ts = old.ts; }
+      viewed.meals[editingMealIdx] = entry;
+    } else {
+      viewed.meals.push(entry);
+    }
     saveAll(data);
     setMealFormOpen(false);
     renderMeals();
@@ -2268,6 +2434,7 @@
   var sleepBarsEl = document.getElementById("sleepBars");
   var sleepFeelingBtns = document.querySelectorAll('#sleepFeelingRow .feeling-btn');
   var sleepHoursInputEl = document.getElementById("sleepHoursInput");
+  var sleepMinsInputEl = document.getElementById("sleepMinsInput");
   var sleepHoursStatusEl = document.getElementById("sleepHoursStatus");
   var sleepHoursBarsEl = document.getElementById("sleepHoursBars");
   var saveSleepHoursBtn = document.getElementById("saveSleepHoursBtn");
@@ -2299,8 +2466,12 @@
       '</div>';
     }).join("");
 
-    sleepHoursInputEl.value = (typeof viewed.sleepHours === "number") ? viewed.sleepHours : "";
-    sleepHoursStatusEl.textContent = (typeof viewed.sleepHours === "number") ? "Registrado: " + viewed.sleepHours + " h" : "Sin registrar";
+    if(typeof viewed.sleepHours === "number"){
+      var totMin = Math.round(viewed.sleepHours * 60);
+      sleepHoursInputEl.value = Math.floor(totMin / 60);
+      sleepMinsInputEl.value = totMin % 60;
+    } else { sleepHoursInputEl.value = ""; sleepMinsInputEl.value = ""; }
+    sleepHoursStatusEl.textContent = (typeof viewed.sleepHours === "number") ? "Registrado: " + fmtHM(viewed.sleepHours) : "Sin registrar";
 
     var hourDays = [];
     for(var j=6;j>=0;j--){
@@ -2318,7 +2489,7 @@
       var barH = (d.h !== null) ? Math.round(10 + ((d.h - hMin) / hRange) * 70) : 6;
       var isViewed = (d.k === viewedKey);
       return '<div class="bar-col">'+
-        '<div class="bar-val">'+(d.h !== null ? d.h : "")+'</div>'+
+        '<div class="bar-val">'+(d.h !== null ? fmtHM(d.h).replace(" ","").replace(/m$/,"") : "")+'</div>'+
         '<div class="bar" style="height:'+barH+'px;'+(isViewed ? "outline:2px solid var(--text);" : "")+'"></div>'+
         '<div class="bar-day" style="'+(isViewed ? "color:var(--text); font-weight:700;" : "")+'">'+d.label+'</div>'+
       '</div>';
@@ -2335,20 +2506,25 @@
   });
 
   function saveSleepHours(){
-    var val = parseFloat(sleepHoursInputEl.value.replace(",", "."));
-    if(isNaN(val) || val < 0 || val > 24){
-      sleepHoursStatusEl.textContent = "Introduce unas horas válidas (0-24)";
+    var hh = parseInt(sleepHoursInputEl.value, 10);
+    var mm = parseInt(sleepMinsInputEl.value, 10);
+    if(isNaN(hh)) hh = 0;
+    if(isNaN(mm)) mm = 0;
+    if(hh < 0 || mm < 0 || mm > 59 || hh > 24 || (hh === 24 && mm > 0) || (hh === 0 && mm === 0 && sleepHoursInputEl.value === "" && sleepMinsInputEl.value === "")){
+      sleepHoursStatusEl.textContent = "Introduce horas (0-24) y minutos (0-59)";
       return;
     }
-    viewed.sleepHours = Math.round(val * 4) / 4;
+    viewed.sleepHours = (hh * 60 + mm) / 60;
     saveAll(data);
     renderSleep();
     renderHome();
   }
 
   saveSleepHoursBtn.addEventListener("click", saveSleepHours);
-  sleepHoursInputEl.addEventListener("keydown", function(e){
-    if(e.key === "Enter"){ saveSleepHours(); sleepHoursInputEl.blur(); }
+  [sleepHoursInputEl, sleepMinsInputEl].forEach(function(el){
+    el.addEventListener("keydown", function(e){
+      if(e.key === "Enter"){ saveSleepHours(); el.blur(); }
+    });
   });
 
   // ---------- PESO ----------
@@ -3685,6 +3861,7 @@
   renderWeight();
   renderPrep();
   renderNotes();
+  renderHealth();
   SIMPLE_HABITS.forEach(renderSimpleHabit);
   renderHome();
 
