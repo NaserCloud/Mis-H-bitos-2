@@ -459,7 +459,7 @@
 <header>
   <h1>Mis Hábitos</h1>
   <div class="date" id="dateLabel"></div>
-  <div class="app-version">Versión 2.1 · 11 oct 2026</div>
+  <div class="app-version">Versión 2.2 · 11 oct 2026</div>
   <div class="daynav" id="dayNav">
     <button id="dayPrevBtn" aria-label="Día anterior">◀</button>
     <div class="daynav-label" id="dayLabel">Hoy</div>
@@ -583,6 +583,11 @@
       <h2 id="mealsListTitle">Hoy</h2>
       <button class="undo-btn" id="undoMealBtn" style="display:none;">deshacer último</button>
       <ul class="coffee-list" id="mealsList"></ul>
+    </div>
+
+    <div class="card">
+      <button class="btn-add-meal" id="mealsDoneBtn">✅ Comidas del día finalizadas</button>
+      <div class="weight-status" id="mealsDoneStatus"></div>
     </div>
   </section>
 
@@ -840,7 +845,7 @@
   <form id="loginForm" class="login-card">
     <div class="login-title">Mis Hábitos</div>
     <div class="login-sub">Inicia sesión para continuar</div>
-    <div class="app-version" style="text-align:center;">Versión 2.1 · 11 oct 2026</div>
+    <div class="app-version" style="text-align:center;">Versión 2.2 · 11 oct 2026</div>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" required>
     <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required minlength="6">
     <button type="submit" id="loginSubmitBtn">Entrar</button>
@@ -1114,6 +1119,7 @@
       SLOT_KEYS.forEach(function(slot){ data[k].supplements[slot] = {}; });
     }
     if(!Array.isArray(data[k].meals)){ data[k].meals = []; }
+    if(typeof data[k].mealsDone !== "boolean"){ data[k].mealsDone = false; }
     if(typeof data[k].sleep !== "string"){ data[k].sleep = null; }
     if(typeof data[k].sleepHours !== "number"){ data[k].sleepHours = null; }
     if(typeof data[k].weight !== "number"){ data[k].weight = null; }
@@ -1534,6 +1540,9 @@
     if(!(rec.gymSession && rec.gymSession.completed)){
       items.push({ icon: "🏋️", text: "Ejercicio / Gym", screen: "screen-gym" });
     }
+    if(!rec.mealsDone){
+      items.push({ icon: "🍽️", text: "Finalizar comidas del día", screen: "screen-meals" });
+    }
     (rec.meals || []).forEach(function(m, idx){
       if(!m.feeling){
         items.push({ icon: "🍽️", text: "Marcar cómo sentó — comida de las " + m.time, screen: "screen-meals" });
@@ -1865,7 +1874,7 @@
       return tot > 0 && dn === tot;
     }
     if(screen === "screen-meals"){
-      return v.meals.length > 0 && v.meals.every(function(m){ return !!m.feeling; });
+      return !!v.mealsDone;
     }
     if(screen === "screen-sleep"){ return typeof v.sleepHours === "number" && !!v.sleep; }
     if(screen === "screen-weight"){ return typeof v.weight === "number"; }
@@ -2158,9 +2167,21 @@
       return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[ch];
     });
   }
+  var mealsDoneBtn = document.getElementById("mealsDoneBtn");
+  var mealsDoneStatusEl = document.getElementById("mealsDoneStatus");
+  mealsDoneBtn.addEventListener("click", function(){
+    viewed.mealsDone = !viewed.mealsDone;
+    saveAll(data);
+    renderMeals();
+    renderHome();
+  });
+
   function renderMeals(){
     var isToday = (viewedKey === todayKeyStr);
     var list = viewed.meals;
+    mealsDoneBtn.textContent = viewed.mealsDone ? "✅ Comidas finalizadas (toca para reabrir)" : "✅ Comidas del día finalizadas";
+    mealsDoneBtn.style.opacity = viewed.mealsDone ? "0.7" : "1";
+    mealsDoneStatusEl.textContent = viewed.mealsDone ? "Día de comidas cerrado" : "";
     mealsListTitleEl.textContent = isToday ? "Hoy" : "Registros de ese día";
     undoMealBtn.style.display = list.length ? "inline" : "none";
 
